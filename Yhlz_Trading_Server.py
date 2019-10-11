@@ -1,4 +1,4 @@
-#tHIS is yhlz's trading program base on tqsdk.
+#This is yhlz's trading program base on tqsdk.
 import threading
 import os
 from tqsdk import TqApi,TqAccount,TargetPosTask,TqSim
@@ -16,10 +16,8 @@ logging.basicConfig(filename='log.txt',filemode='a',level = logging.INFO,format 
 print('This is yhlz\'s trading server,now started!\n')
 try:
     #api=TqApi(TqAccount('快期模拟','284837','86888196'))
-    #api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
-    #logging.info('success sign in! with simnow')
-    api=TqApi(TqAccount('H华安期货','100909186','Yhlz0000'))
-    logging.info('success sign in! with 100909186')
+    api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
+    logging.info('success sign in!')
 except Exception:
     logging.info('problem with sign in!')
     raise SystemExit
@@ -70,7 +68,7 @@ target_position=pd.read_csv('target_position.csv')
 #or 'target_position.keys'
 #------------------temp executer initial--------------------------------------------------------
 
-pos_SHFErb2001= TargetPosTask(api,'SHFE.rb2001',price='PASSIVE')
+pos_SHFErb1910= TargetPosTask(api,'SHFE.rb1910',price='PASSIVE')
 ###-----------------------------------------------------------------------------------inital finished-----------------------------------------------------------------###
 
 
@@ -130,7 +128,7 @@ class Executer():
         global target_position
         self.target=target_position.copy()
         finnal_target={}
-        for i in range(len(self.target)):
+        for i in rang(len(self.target)):
             if 'KQ' in self.target.iloc[i,1]:
                 self.target.iloc[i,1]=self.quote_var[self.target.iloc[i,1].replace('KQ.i','KQ.m')].underlying_symbol
             if self.target.iloc[i,1] not in finnal_target.keys():
@@ -198,20 +196,20 @@ while True:
         logging.info(time.ctime())
 #--------------------------------------temp_executer
 
-        for key in range(len(target_position)):
-            if time.time()-when>5 and position['SHFE.rb2001'].volume_long-position['SHFE.rb2001'].volume_short != target_position.iloc[0,2]:
+        for key in target_position:
+            if time.time()-when>5 and position['SHFE.rb1910'].volume_long-position['SHFE.rb1910'].volume_short != target_position.iloc[0,2]:
                 #print('set position')
                 when=time.time()
-                pos_SHFErb2001.set_target_volume(int(target_position.iloc[0,2]))
+                pos_SHFErb1910.set_target_volume(int(target_position.iloc[0,2]))
                 #target_position[key]=0
         #print(time.ctime())
         logging.info('account position is: ')
-        logging.info(str(position['SHFE.rb2001'].volume_long-position['SHFE.rb2001'].volume_short))
+        logging.info(str(position['SHFE.rb1910'].volume_long-position['SHFE.rb1910'].volume_short))
         logging.info('-----------------------------------')
 #---------------------------------------end-------
-    if now.tm_hour==15 or now.tm_hour==23 or contral=='q':
+    if now.tm_hour==15 or now.tm_hour==3 or contral=='q':
         target_position.to_csv('target_position.csv',index=False)  #store target postion to file
-        logging.info('stop running!')
         break
 #get_input.join()
 api.close()
+os.system('pause')
