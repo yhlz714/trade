@@ -165,7 +165,7 @@ while True:
     now=time.localtime(time.time())
     if now.tm_min==30 or now.tm_min==0:
         #pass
-        time.sleep(0.5)  #avoid some exception like when updated and send order but exchange refused ,then wait 0.5s 
+        time.sleep(0.5)  #avoid some exception like when updated and send order but exchange refused ,then wait 0.5s
     run=0
     for contract in data_var.values():
         #print(dir())
@@ -175,6 +175,7 @@ while True:
             #print('run strategy')
             break
     if run:
+        time.sleep(0.5)
         run=0
         for i in strategy_list:
             #print(i)
