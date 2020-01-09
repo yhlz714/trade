@@ -6,7 +6,9 @@ import sys
 import numpy as np
 import os
 import logging
+import global_var
 import pandas
+'''
 class strategy:
     target_position=pd.read_csv('target_position.csv')
     def __init__(self,contract,task,data,account,position,stg,quote,api,parameter):
@@ -21,19 +23,20 @@ class strategy:
         self.parameter=parameter
         if typr(task)!=list and type(data)!=list: #now don't concern about multiple data or task
             self.type='single'
-    def run():
+    def run(self):
         res=self.stg(self.data,self.position,self.account,self.parameter[0],self.parameter[1],self.parameter[2],self.parameter[3],self.parameter[4],self.parameter[5])
         target_temp.loc[target_position['contract']==self.contract]['vol']+=int(res[-1,0])     #默认的情况下target的各种contract都是0
-    def execute_order():
+    def execute_order(self):
         target_temp=sort_order()
         for item in self.task:
             item.set_target_volume(int(target_temp[target_temp['contract']==item.contract]['vol']))
         for i in len(target_position):  #set all back to zero
             target_position.iloc[i,2]=0
     def sort_order():   #make all index contract main contract to real contract
+        pass
         ##这是一个调整主力合约和指数合约变为真正可以下单合约的函数，task是继承了tqsdk的目标量task的新类因为它没有提供这个task是对哪个合约下单的回调，所以自己加一个，
         ##本函数还要调用换合约函数，检验看现在是否应该更换合约，根据target_position。
-    def change_contract():
+'''
 #:pdb.set_trace()
 if sys.version_info>=(3,3):
     vv=3
@@ -148,7 +151,7 @@ def sin_ma(data,k=50,n=500,m=1000): #k 代表每次增加k分之pi ，n表示m�
             rr[i+m+n,1]=data[i+m+n,0] #add a time series
         j=j+pi/k
     return rr
-def cross_ma(data,position,account,n=108,m=694,n3,n4,n5,n6): #本策略是双均线交叉买卖策略。
+def cross_ma(data,position,account,n=108,m=694): #本策略是双均线交叉买卖策略。
     #print(n,m)
     #print(data[-1,:])
     rr=np.zeros([len(data),2])
@@ -228,6 +231,9 @@ def dc_chennel(data,n=200): #唐安琪通道策略，n表示n周期的最大最�
             rr[i+n,0]=rr[i+n-1,0]
             rr[i+n,1]=data[i+n,0]
     return rr
+def tt():
+    global global_var
+    print(global_var.get('a'))
 if __name__=='__main__':
     print('strategy main program can check the new strategy is running right or not.')
     data=np.loadtxt('data.csv',dtype=np.int,delimiter=',')

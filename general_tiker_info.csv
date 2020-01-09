@@ -1,4 +1,4 @@
-﻿contract_name,index_name,minmum_move,contract_multiplier,margin ,flat_rule,contract_change_rule,ch_name,close_time,main_contract
+contract_name,index_name,minmum_move,contract_multiplier,margin ,flat_rule,contract_change_rule,ch_name,close_time,main_contract
 KQ.m@CFFEX.IF,KQ.i@CFFEX.IF,0.2,300,0.1,normal,every,沪深主连,0,
 KQ.m@CFFEX.IH,KQ.i@CFFEX.IH,0.2,300,0.1,normal,every,上证主连,0,
 KQ.m@CFFEX.IC,KQ.i@CFFEX.IC,0.2,200,0.1,normal,every,中证主连,0,
@@ -11,7 +11,7 @@ KQ.m@SHFE.ag,KQ.i@SHFE.ag,1,15,0.1,normal,every,沪银主连,,
 KQ.m@SHFE.zn,KQ.i@SHFE.zn,5,5,0.1,normal,every,沪锌主连,,
 KQ.m@SHFE.al,KQ.i@SHFE.al,5,5,0.1,normal,every,沪铝主连,,
 KQ.m@SHFE.ru,KQ.i@SHFE.ru,5,10,0.1,normal,every,橡胶主连,,
-KQ.m@SHFE.rb,KQ.i@SHFE.rb,1,10,0.1,normal,every,螺纹主连,"[23:00,15:00]",SHFE.rb1910
+KQ.m@SHFE.rb,KQ.i@SHFE.rb,1,10,0.1,normal,every,螺纹主连,"[23:00,15:00]",
 KQ.m@SHFE.fu,KQ.i@SHFE.fu,1,10,0.1,normal,every,燃油主连,,
 KQ.m@SHFE.hc,KQ.i@SHFE.hc,1,10,0.1,normal,every,热卷主连,,
 KQ.m@SHFE.bu,KQ.i@SHFE.bu,2,10,0.1,normal,every,沥青主连,,
