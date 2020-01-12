@@ -22,7 +22,8 @@ while True:  # circle recive messige for doing things
         contract = ss.recv(512).decode()
         conn = sqlite3.connect('data.db')
         # c=conn.cursor()
-        file = pd.read_sql('SELECT * FROM [' + contract + '] where datetime >' + start + ' and datetime <=' + end, conn)
+        file = pd.read_sql('SELECT * FROM [' + contract + ']', conn)
+        file
         file.to_csv('temp.csv')
         ss.send(bytes('d', encoding='utf-8'))  # mean file is done let client to download it
 ss.close()

@@ -157,7 +157,7 @@ class DATA():
     def call_back(self, size1, size2):  # use to print how many already download
         print(size1, size2)
 
-    def start_server(self):
+    def start_server(self, server):
         """
         启动服务器的文件服务程序
         :return:
@@ -166,7 +166,7 @@ class DATA():
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # 用于确保第一次连接不会出错
             ssh.connect(self.__ip, 22, self.__username, self.__password)
-            stdin, stdout, stderr = ssh.exec_command("nohup python3 data_server.py &")
+            stdin, stdout, stderr = ssh.exec_command("nohup python3" + server + " &")
             # print(stdout.read().decode('utf-8'))
         except Exception as e:
             print(e)
@@ -222,7 +222,6 @@ class DATA():
         s.connect(address)
         s.send('q'.encode())  # close server
 
-
     def checkDataUpdate(self):
         """
         用于从服务器上面检查是否有数据更新，如果有就下载然后更新到本地数据库
@@ -234,13 +233,13 @@ class DATA():
             temp = os.system('ping 106.52.184.131')
 
         if temp == 0:
-            conn = sqlite3.connect('../../future_data.db')
+            conn = sqlite3.connect('./future_data.db')
             c = conn.cursor()
             general_tick_info = pd.read_csv('../general_tiker_info.csv')
 
-            self.start_server()
+            self.start_server('server_new.py')
 
-            #用于主力合约。
+            # 用于主力合约。
             # for item in general_tick_info.contract_name:
             #     a = c.execute('SELECT DATETIME FROM [' + item + '] ORDER BY DATETIME DESC LIMIT 1')
             #     for i in a:
@@ -256,16 +255,12 @@ class DATA():
             for item in general_tick_info.index_name:
                 a = c.execute('SELECT [DATE TIME] FROM [' + item.replace('.', '') + '] ORDER BY [DATE TIME] DESC LIMIT 1')
                 for i in a:
-                    start_time = pd.to_datetime(i[0]).value/1000000000
+                    start_time = pd.to_datetime(i[0]).timestamp()
                     if start_time < time.time():  # 小于当前时间
-                        start_time = start_time * 1000000000  # 服务器上存储的比本地时间戳多9个0
-                        end_time = time.time() * 1000000000
-                        self.get_csv(start_time=str(start_time), end_time=str(end_time), contract=item)
+                        start_time = datetime.fromtimestamp(start_time).strftime('%Y/%m/%d %H:%M')
+                        end_time = datetime.fromtimestamp(time.time()).strftime('%Y/%m/%d %H:%M')
+                        self.get_csv(start_time=start_time, end_time=end_time, contract=item)
                         file = pd.read_csv(str(item).replace('.', '') + '.csv')
-                        file['datetime'] = file['datetime'] / 1000000000
-                        file['datetime'] = file['datetime'].apply(lambda x: datetime.fromtimestamp(x))
-                        file['datetime'] = file['datetime'].dt.strftime('%Y/%m/%d %H:%M')
-                        file.columns = ['Date Time', 'Open', 'High', 'Low', 'Close', 'Volume']
                         file.to_sql(item.replace('.', ''), conn, if_exists='append', index=False)
                         os.remove(str(item).replace('.', '') + '.csv')
 
@@ -275,7 +270,6 @@ class DATA():
         else:
             print('network error, data not update!')
 
-
     def feed(self):  # can also use other file if exist
         '''
         通过本地数据库文件读出csv，创建创建数据源对象
@@ -284,8 +278,8 @@ class DATA():
         conn = sqlite3.connect('../../future_data.db')
         Data = {}
         for category in self.context.categorys:
-
-            file =  pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn, parse_dates=['Date Time'])
+            file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
+                               parse_dates=['Date Time'])
             file.to_csv('temp.csv', index=False)
             res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=1000000)
             res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
@@ -348,7 +342,6 @@ class Kline():
         self.techAnaly = []  # 用来存放策略所以技术指标的列名
         self.width = 0
         self.hight = 0
-
 
     def configTechAnaly(self, tech):
         """
@@ -615,7 +608,6 @@ class Kline():
         self.canvas.width = event.width
         self.canvas.delete(ALL)
         self.draw(self.place)
-
 
 
 if __name__ == '__main__':
