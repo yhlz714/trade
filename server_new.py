@@ -20,11 +20,11 @@ while True:  # circle recive messige for doing things
         end = ss.recv(512).decode()
         ss.send(bytes('r', encoding='utf-8'))
         contract = ss.recv(512).decode()
-        conn = sqlite3.connect('data.db')
+        conn = sqlite3.connect('future_data.db')
         # c=conn.cursor()
-        file = pd.read_sql('SELECT * FROM [' + contract + ']', conn)
-        file
-        file.to_csv('temp.csv')
+        file = pd.read_sql('SELECT * FROM [' + contract.replace('.', '') + ']', conn)
+        file = file.loc[(file['Date Time'] > start) & (file['Date Time'] < end) , :]
+        file.to_csv('temp.csv', index=False)
         ss.send(bytes('d', encoding='utf-8'))  # mean file is done let client to download it
 ss.close()
 s.close()
