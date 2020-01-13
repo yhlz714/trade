@@ -166,7 +166,7 @@ class DATA():
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # 用于确保第一次连接不会出错
             ssh.connect(self.__ip, 22, self.__username, self.__password)
-            stdin, stdout, stderr = ssh.exec_command("nohup python3" + server + " &")
+            stdin, stdout, stderr = ssh.exec_command("nohup python3 " + server + " &")
             # print(stdout.read().decode('utf-8'))
         except Exception as e:
             print(e)
@@ -177,7 +177,7 @@ class DATA():
         # ------------------------------SSH finished
 
     # ------------------------------get csv file from server
-    def get_csv(self, start_time='0', end_time=str(int(time.time() * 1000000000)),
+    def get_csv(self, start_time='1970/01/01', end_time=datetime.fromtimestamp(time.time()).strftime('%Y/%m/%d %H:%M'),
                 contract='KQ.i@SHFE.rb'):  # defult end is now
         '''
         下载服务器处理好的csv文件
@@ -270,6 +270,7 @@ class DATA():
         else:
             print('network error, data not update!')
 
+
     def feed(self):  # can also use other file if exist
         '''
         通过本地数据库文件读出csv，创建创建数据源对象
@@ -282,7 +283,7 @@ class DATA():
                                parse_dates=['Date Time'])
             file.to_csv('temp.csv', index=False)
             res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=1000000)
-            res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
+            res.setDateTimeFormat('%Y/%m/%d %H:%M')
             res.addBarsFromCSV(category, 'temp.csv')
             Data[category] = file
 
