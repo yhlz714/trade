@@ -3,7 +3,9 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
+import logging
 
+logging.basicConfig(filename='log.txt',filemode='a',level = logging.INFO,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 api = TqApi(TqSim())
 os.system('rm -f future_data.db.bak')			 #this two step is protect database not jumbled by programeunderneath
 os.system('cp future_data.db future_data.db.bak')	#if something wrong with program delete data.db and get bak file back
@@ -14,7 +16,7 @@ info=pd.read_csv('general_tiker_info.csv')
 
 def process(name):
 	global contract
-	print('processing: '+name)
+	logging.info('processing: '+name)
 	contract[name].drop('id',axis=1,inplace=True)
 	contract[name].drop('open_oi',axis=1,inplace=True)
 	contract[name].drop('close_oi',axis=1,inplace=True)
@@ -35,7 +37,7 @@ def process(name):
 			break
 
 	if i == len(contract[name])-2:
-		print('Data have gaps or there is no data before!')
+		logging.info('Data have gaps or there is no data before!')
 
 	contract[name]['Adj Close'] = 0
 	contract[name].columns = ['Date Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
@@ -45,14 +47,12 @@ def process(name):
 
 contract={}
 for name in info.index_name:
-	klines = api.get_kline_serial(name, 60, 1200)
-	contract[name] = klines.copy()
-
+	klines=api.get_kline_serial(name,60,1200)
+	contract[name]= klines.copy()
 for name in info.index_name:
-	print(name)
+	logging.info(name)
 	process(name)
-
-print('successed!')
+logging.info('successed!')
 conn.commit()
 conn.close()
 api.close()
