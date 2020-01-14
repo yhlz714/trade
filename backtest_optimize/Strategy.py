@@ -63,11 +63,37 @@ class TurtleTrade(strategy.BacktestingStrategy):
         """
         super(TurtleTrade).__init__(feed)
         self.feed = feed
-        self.instrument = instrument
+        self.instruments = instrument
         self.atrPeriod = atrPeriod
         self.short = short
         self.long = long
         self.dictOfDateDf = dictOfDataDf
 
+
     def onBars(self, bars):
-        pass
+        order = []
+
+        for instrument in self.instruments:
+
+            quantity = self.getQuantity()
+            upper = MAX(self.feed['instrument'].getHighDataSeries())
+            lowwer = MIN(self.feed['instrument'].getLowDataSeries())
+
+            #开仓。
+            if bars.getBar(instrument=instrument).getClose() > upper:
+                ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, instrument, quantity)
+                order.append(ret)
+            elif bars.getBar(instrument=instrument).getClose() < lowwer:
+                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, quantity)
+                order.append(ret)
+            #TODO 平仓加仓的情况
+
+        for item in order:
+            self.getBroker().submitOrder(item)
+
+
+
+    def getQuantity(self):
+        atr = ATR()
+        self.getBroker().getCash() / atr
+
