@@ -8,6 +8,8 @@ from pyalgotrade import strategy
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
 from pyalgotrade import broker
+import talib
+import pandas as pd
 
 
 class SMACrossOver(strategy.BacktestingStrategy):
@@ -51,11 +53,12 @@ class TurtleTrade(strategy.BacktestingStrategy):
     """
     海龟交易策略
     """
-    def __init__(self, feed, instrument, atrPeriod, short, long, dictOfDataDf):
+    def __init__(self, feed, instruments, context, dictOfDataDf,  atrPeriod=20, short=20, long=55):
         """
         初始化
         :parm feed pyalgotrade 的feed对象，装了所有csv数据。类似于dict可以用中括号取值。
         :parm instrument 包含所有category的list，用的是简写，如‘rb’，‘ag’
+        :param context context 对象，装所有变量
         :parm atrPeriod atr的周期
         :parm short 唐奇安通道的短期
         :parm long 唐奇安通道的长期
@@ -63,11 +66,13 @@ class TurtleTrade(strategy.BacktestingStrategy):
         """
         super(TurtleTrade).__init__(feed)
         self.feed = feed
-        self.instruments = instrument
+        self.instruments = instruments
         self.atrPeriod = atrPeriod
         self.short = short
         self.long = long
         self.dictOfDateDf = dictOfDataDf
+        self.context = context
+        self.generalTickInfo = pd.read('../general_tiker_info.csv')
 
 
     def onBars(self, bars):
@@ -76,24 +81,43 @@ class TurtleTrade(strategy.BacktestingStrategy):
         for instrument in self.instruments:
 
             quantity = self.getQuantity()
-            upper = MAX(self.feed['instrument'].getHighDataSeries())
-            lowwer = MIN(self.feed['instrument'].getLowDataSeries())
+            long_upper = talib.MAX(self.feed[instrument].getHighDataSeries(), self.long)
+            long_lowwer = talib.MIN(self.feed[instrument].getLowDataSeries(), self.long)
+            short_upper = talib.MAX(self.feed[instrument].getHighDataSeries(), self.short)
+            short_lower = talib.MAX(self.feed[instrument].getLowDataSeries(), self.short)
 
-            #开仓。
-            if bars.getBar(instrument=instrument).getClose() > upper:
+            high = self.feed[instrument].getHighDataSeries()
+            low = self.feed[instrument].getLowDataSeries()
+
+            # 开仓。
+            if long_upper[-1] > long_upper[-2] and 'no position':  #当期上届变高表示创新高，新低同理
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, instrument, quantity)
                 order.append(ret)
-            elif bars.getBar(instrument=instrument).getClose() < lowwer:
-                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, quantity)
+            elif long_lowwer[-1] < long_lowwer[-2] and 'no position' :
+                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, instrument, quantity)
                 order.append(ret)
-            #TODO 平仓加仓的情况
+            # 平仓
+            elif short_upper[-1] > short_upper[-2] and 'have short':  #平空
+                ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, instrument, quantity)
+            elif short_lower[-1] < short_lower[-2] and 'have long':  #平多
+                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, quantity)
 
+        # TODO 此处还需要根据此时的持仓情况判断单是否可以发
         for item in order:
             self.getBroker().submitOrder(item)
 
 
-
-    def getQuantity(self):
-        atr = ATR()
-        self.getBroker().getCash() / atr
+    def getQuantity(self, instrument):
+        """
+        计算此时可以开多少张
+        :return:
+        """
+        quantity = '获取账户资产'
+        atr = talib.ATR(self.feed[instrument].getHighDataSeries(), self.feed[instrument].getLowDataSeries(),
+                  self.feed[instrument].getCloseDataSeries(), self.atrPeriod)
+        KQname = self.context.categoryToFile[instrument]
+        for i in range(self.generalTickInfo.shap[0]):
+            if self.generalTickInfo.loc[i, 'index_name'].replace('.', '') == KQname:
+                KQmultiplier = self.generalTickInfo.loc[i, 'contract_multiplier']
+        return quantity / atr[-1] / 100 * KQmultiplier #账户的1%的权益，除去atr值，再除去合约乘数，即得张数。
 
