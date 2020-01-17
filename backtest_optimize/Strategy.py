@@ -79,10 +79,12 @@ class TurtleTrade(strategy.BacktestingStrategy):
     def onBars(self, bars):
         self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
         order = []
+        allAtr = {}
         postion = self.getBroker().getPositions()
         for instrument in self.instruments:
             atr = talib.ATR(self.feed[instrument].getHighDataSeries(), self.feed[instrument].getLowDataSeries(),
                             self.feed[instrument].getCloseDataSeries(), self.atrPeriod)
+            allAtr[instrument] = atr
             quantity = self.getQuantity(instrument, atr)
             long_upper = talib.MAX(self.feed[instrument].getHighDataSeries(), self.long+1)
             long_lowwer = talib.MIN(self.feed[instrument].getLowDataSeries(), self.long+1)
@@ -146,8 +148,25 @@ class TurtleTrade(strategy.BacktestingStrategy):
                         order.append(ret)
 
                      # TODO 此处还需要根据此时的持仓情况判断单是否可以发
+        all = 0
+        for instrument in postion:
+              all +=  round(postion[instrument] / self.getQuantity(instrument,allAtr[instrument]))
+              #看某个品种有多少个单位的持仓，按照现在的atr来计算
+        if all >= 10:
+            open_mark = False  #达到10个单位，不再开仓
+        else:
+            open_mark = True
+
         for item in order:
-            self.getBroker().submitOrder(item)
+            action = item.getAction()
+            if action == broker.Order.Action.SELL or action == broker.Order.Action.BUY_TO_COVER: #平仓的都可以
+                self.getBroker().submitOrder(item)
+            else: #开仓的情况
+                if open_mark:
+                    ins = item.getInstrument()
+                    exist = round(postion[ins] / self.getQuantity(ins, allAtr[ins]))
+                    if exist <= 3:  #如果单个品种小于3个单位的持仓，就可以开
+                        self.getBroker().submitOrder(item)
 
 
     def getQuantity(self, instrument, atr):
@@ -160,10 +179,13 @@ class TurtleTrade(strategy.BacktestingStrategy):
 
         KQFileName = self.context.categoryToFile[instrument]
 
-        for i in range(self.generalTickInfo.shap[0]):
-            if self.generalTickInfo.loc[i, 'index_name'].replace('.', '') == KQFileName:
-                KQmultiplier = self.generalTickInfo.loc[i, 'contract_multiplier']
+        KQmultiplier = self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier']
 
-        return quantity / atr[-1] / 100 * KQmultiplier
+        res = int(quantity / atr[-1] / 100 * KQmultiplier) # 向下取整
+
+        if res:
+            return res
+        else:
+            return 1 #至少开1手
         #账户的1%的权益，除去atr值，再除去合约乘数，即得张数。表示一个atr的标准波动让账户的权益变动1%
 
