@@ -33,7 +33,7 @@ def Backtest():
 
     global context, Data, feed
     # ???怎么搞定策略不同传入参数的问题
-    context.myStrategy = context.stg(feed, "rb", 108, Data)
+    context.myStrategy = context.stg(feed, "rb", context, Data)
 
     retAnalyzer = returns.Returns(maxLen=1000000)
     context.myStrategy.attachAnalyzer(retAnalyzer)
@@ -46,8 +46,8 @@ def Backtest():
     context.myStrategy.attachAnalyzer(tradeAnalyzer)
 
     # print(myStrategy.getBroker().getCommission())
-    context.myStrategy.run()
     print(time.ctime())
+    context.myStrategy.run()
     for item in context.myStrategy.tech:
         for key in Data.keys():  # 此处如果key有多个，那么策略也需要按照key的顺序多个写。也就是多品种的情况
             Data[key][item] = context.myStrategy.tech[item]  # 将技术指标写入画图的df中
@@ -123,26 +123,24 @@ if __name__ == '__main__':
     bigFrame = Frame(context.root)
     frame = Frame(bigFrame)
 
-    cv = Canvas(frame, background='black', width=1800, height=800)
-    cv.pack(fill=X, expand=YES)
-    frame.pack(fill=BOTH, expand=YES)
-    # Button(bigFrame, text='get big',command=lambda cv=cv:callback(cv)).pack(side=BOTTOM)
+    cv = Canvas(frame, background='black')#, width=1800, height=400)
+    cv.pack(fill=BOTH, expand=YES)
 
     v = StringVar()
 
-    Label(frame, textvariable=v).pack(side=BOTTOM, fill=BOTH, expand=YES)
+    Label(frame, textvariable=v).pack(side=BOTTOM,fill=BOTH)
     v.set('try')
     entry = Entry(frame)
-    entry.pack(side=BOTTOM, fill=BOTH, expand=YES)
+    entry.pack(side=BOTTOM, fill=BOTH)
     hbar = Scrollbar(frame, orient=HORIZONTAL)
-    hbar.pack(side=BOTTOM, fill=BOTH, expand=YES)
+    hbar.pack(side=BOTTOM, fill=BOTH)
     hbar.set(1, 1)
     frame1 = Frame(frame)
     kline = Kline(cv, hbar, v, Data)
     # kline.configTechAnaly([i for i in context.stg.tech])  # 设置要画的计算指标
-
-    # 对于输入框输入的命令在当前环境下执行
-
+    #
+    # # 对于输入框输入的命令在当前环境下执行
+    #
     entry.bind('<Button-1>', lambda x, e=entry: e.focus_set())
     entry.bind('<Return>', lambda x, e=entry: kline.Eval(x, e))
     cv.bind('<Button-1>', kline.click)
@@ -153,20 +151,21 @@ if __name__ == '__main__':
     cv.bind('<Configure>', kline.updateConfig)
     context.root.bind('<<finished>>', lambda ev: kline.configTechAnaly([i for i in context.myStrategy.tech]))
 
-    kline.draw()
     hbar.config(command=kline.redraw)
     bLeft = Button(frame1, text='backward', command=kline.backward)
     bRight = Button(frame1, text='forward', command=kline.forward)
-    bLeft.pack(side=LEFT, fill=BOTH, expand=YES)
-    bRight.pack(side=RIGHT, fill=BOTH, expand=YES)
-    frame1.pack(side=BOTTOM, fill=BOTH, expand=YES)
+    bLeft.pack(side=LEFT, fill=BOTH)
+    bRight.pack(side=RIGHT, fill=BOTH)
+    frame1.pack(side=BOTTOM, fill=BOTH)
 
+    frame.pack(fill=BOTH, expand=YES)
     bigFrame.pack(fill=BOTH, expand=YES)
 
+    kline.draw()
     # 创建窗口
     backtest = threading.Thread(target=Backtest, name='backtest')
     # backtest.start()
-    #
+
     # delay_deal()
     context.root.mainloop()
     # backtest.join()

@@ -276,14 +276,14 @@ class DATA():
         通过本地数据库文件读出csv，创建创建数据源对象
         遍历context的category给所有品种读入数据
         '''
-        conn = sqlite3.connect('../../future_data.db')
+        conn = sqlite3.connect('./future_data.db')
         Data = {}
         for category in self.context.categorys:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
             file.to_csv('temp.csv', index=False)
             res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=1000000)
-            res.setDateTimeFormat('%Y/%m/%d %H:%M')
+            res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
             res.addBarsFromCSV(category, 'temp.csv')
             Data[category] = file
 
