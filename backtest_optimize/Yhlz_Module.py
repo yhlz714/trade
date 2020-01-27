@@ -281,6 +281,7 @@ class DATA():
         for category in self.context.categorys:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
+            file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True) #测试
             file.to_csv('temp.csv', index=False)
             res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=1000000)
             res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
@@ -306,7 +307,7 @@ class Kline():
         self.canvas = canvas
         self.canvas.focus_set()
         self.canvas.width = int(self.canvas['width'])  # 将固定的宽度和高度变为属性,本来是str 需要int强制转换
-        self.canvas.hight = int(self.canvas['height'])  # 如果发生<Configure>事件，也可以修改这两个
+        self.canvas.height = int(self.canvas['height'])  # 如果发生<Configure>事件，也可以修改这两个
         self.scrollbar = scrollbar
         self.Data = Data
         self.addData(Data)
@@ -342,7 +343,7 @@ class Kline():
                        'LightGrey', 'Silver', 'DarkGray', 'Gray', 'DimGray', 'Black']
         self.techAnaly = []  # 用来存放策略所以技术指标的列名
         self.width = 0
-        self.hight = 0
+        self.height = 0
 
     def configTechAnaly(self, tech):
         """
@@ -394,38 +395,38 @@ class Kline():
         max = dataTemp['High'].max()  # 获取数据最大值
         min = dataTemp['Low'].min()  # 获取最小值
         widthOffset = 30
-        hightOffset = 10
-        self.hight = self.canvas.hight - hightOffset  # 去掉10的用来画坐标轴空间
+        heightOffset = 10
+        self.height = self.canvas.height - heightOffset  # 去掉10的用来画坐标轴空间
         self.width = self.canvas.width - widthOffset
 
-        self.canvas.create_line((25, 0), (25, self.hight), fill='red', width=2)
+        self.canvas.create_line((25, 0), (25, self.height), fill='red', width=2)
         for i in range(4):
-            self.canvas.create_line((25, (i + 1) * self.hight / 5), (32, (i + 1) * self.hight / 5),
+            self.canvas.create_line((25, (i + 1) * self.height / 5), (32, (i + 1) * self.height / 5),
                                     fill='red')  # 画4条线当轴上的刻度
             text = str(round(max - (i + 1) / 5 * (max - min), 2))
             # print(max,min,text)
-            self.canvas.create_text(13, (i + 1) * self.hight / 5, text=text, fill='white', anchor=W)
+            self.canvas.create_text(13, (i + 1) * self.height / 5, text=text, fill='white', anchor=W)
 
-        self.canvas.create_line((0, self.canvas.hight - 8), (self.width, self.canvas.hight - 8), fill='red', width=2)
+        self.canvas.create_line((0, self.canvas.height - 8), (self.width, self.canvas.height - 8), fill='red', width=2)
         xPlace = []  # 记录横坐标刻度的位置
         for i in range(4):
-            self.canvas.create_line(((i + 1) * self.width / 5, self.canvas.hight - 8),
-                                    ((i + 1) * self.width / 5, self.canvas.hight - 15), fill='red')  # 画4条线当轴上的刻度
+            self.canvas.create_line(((i + 1) * self.width / 5, self.canvas.height - 8),
+                                    ((i + 1) * self.width / 5, self.canvas.height - 15), fill='red')  # 画4条线当轴上的刻度
             xPlace.append((i + 1) * self.width / 5)
 
         dataTemp['Open'] = \
-            (self.hight - (dataTemp['Open'] - min) * self.hight / (max - min)).astype(int)  # 转换成为像素的y坐标的位置
+            (self.height - (dataTemp['Open'] - min) * self.height / (max - min)).astype(int)  # 转换成为像素的y坐标的位置
         dataTemp['High'] = \
-            (self.hight - (dataTemp['High'] - min) * self.hight / (max - min)).astype(int)
+            (self.height - (dataTemp['High'] - min) * self.height / (max - min)).astype(int)
         dataTemp['Low'] = \
-            (self.hight - (dataTemp['Low'] - min) * self.hight / (max - min)).astype(int)
+            (self.height - (dataTemp['Low'] - min) * self.height / (max - min)).astype(int)
         dataTemp['Close'] = \
-            (self.hight - (dataTemp['Close'] - min) * self.hight / (max - min)).astype(int)
+            (self.height - (dataTemp['Close'] - min) * self.height / (max - min)).astype(int)
 
         # 调整技术指标的坐标
         if self.techAnaly:
             for tech in self.techAnaly:
-                dataTemp[tech] = (self.hight - (dataTemp[tech] - min) * self.hight / (max - min)).astype(int)
+                dataTemp[tech] = (self.height - (dataTemp[tech] - min) * self.height / (max - min)).astype(int)
 
         widthDelta = math.floor(self.width / self.num)
         self.widthDelta = widthDelta
@@ -455,7 +456,7 @@ class Kline():
             # 给横坐标写数值
             if xPlace and i - widthDelta < xPlace[-1] and i >= xPlace[-1]:
                 text = str(dataTemp.iloc[j, 0])
-                self.canvas.create_text(i, self.hight + 5, text=text, fill='white')
+                self.canvas.create_text(i, self.height + 5, text=text, fill='white')
                 xPlace.pop()
             x.append(i)
             i -= widthDelta
@@ -542,7 +543,7 @@ class Kline():
             string += (self.dataTemp.columns[i] + ' :' + str(self.dataTemp.iloc[-place, i]) + ' ')
         self.x = x
         self.y = y
-        self.crossItem.append(self.canvas.create_line(x, 0, x, self.hight, fill='white'))
+        self.crossItem.append(self.canvas.create_line(x, 0, x, self.height, fill='white'))
         self.crossItem.append(self.canvas.create_line(0, y, self.width, y, fill='white'))
         return string
 
@@ -607,6 +608,7 @@ class Kline():
         :return:
         """
         self.canvas.width = event.width
+        self.canvas.height = event.height
         self.canvas.delete(ALL)
         self.draw(self.place)
 

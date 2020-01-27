@@ -9,6 +9,7 @@ from pyalgotrade.technical import cross
 from pyalgotrade import broker
 import talib
 import pandas as pd
+import numpy as np
 
 
 class SMACrossOver(strategy.BacktestingStrategy):
@@ -35,7 +36,6 @@ class SMACrossOver(strategy.BacktestingStrategy):
             if self.getBroker().getShares(self.__instrument) != 0:
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                print('zxc')
             ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, self.__instrument, quantity)
             self.getBroker().submitOrder(ret)
             # print(bars.getDateTime())
@@ -65,15 +65,17 @@ class TurtleTrade(strategy.BacktestingStrategy):
         """
         super(TurtleTrade, self).__init__(feed)
         self.feed = feed
-        self.instruments = instruments
+        if isinstance(instruments, list):  # 对于不是多个品种的情况，进行判断，如果是字符串，用list包裹在存储
+            self.instruments = instruments
+        else:
+            self.instruments = [instruments]
         self.atrPeriod = atrPeriod
         self.short = short
         self.long = long
         self.dictOfDateDf = dictOfDataDf
         self.context = context
-        self.generalTickInfo = pd.read_csv('../general_tiker_info.csv')
+        self.generalTickInfo = pd.read_csv('../general_ticker_info.csv')
         self.openPriceAndATR = {}  # 用于记录每个品种的开仓价格与当时的atr
-
 
     def onBars(self, bars):
         self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
@@ -81,70 +83,89 @@ class TurtleTrade(strategy.BacktestingStrategy):
         allAtr = {}
         postion = self.getBroker().getPositions()
         for instrument in self.instruments:
-            atr = talib.ATR(self.feed[instrument].getHighDataSeries(), self.feed[instrument].getLowDataSeries(),
-                            self.feed[instrument].getCloseDataSeries(), self.atrPeriod)
+            atr = talib.ATR(np.array(self.feed[instrument].getHighDataSeries()),
+                            np.array(self.feed[instrument].getLowDataSeries()),
+                            np.array(self.feed[instrument].getCloseDataSeries()), self.atrPeriod)[-1]  # 返回的ndarray
+            if np.isnan(atr):  # 为nan说明数据还不够，不做计算。
+                continue
             allAtr[instrument] = atr
             quantity = self.getQuantity(instrument, atr)
-            long_upper = talib.MAX(self.feed[instrument].getHighDataSeries(), self.long + 1)
-            long_lowwer = talib.MIN(self.feed[instrument].getLowDataSeries(), self.long + 1)
-            short_upper = talib.MAX(self.feed[instrument].getHighDataSeries(), self.short + 1)
-            short_lower = talib.MAX(self.feed[instrument].getLowDataSeries(), self.short + 1)
+            long_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.long + 1)
+            long_lowwer = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.long + 1)
+            short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short + 1)
+            short_lower = talib.MAX(np.array(self.feed[instrument].getLowDataSeries()), self.short + 1)
 
             high = self.feed[instrument].getHighDataSeries()
             low = self.feed[instrument].getLowDataSeries()
 
             # 开仓。
-            if long_upper[-1] > long_upper[-2] and postion[instrument] == 0:  # 当期上界变高表示创新高，新低同理
+            if long_upper[-1] > long_upper[-2] and postion.get(instrument, 0) == 0:  # 当期上界变高表示创新高，新低同理
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, instrument, quantity)
                 self.openPriceAndATR[instrument] = [bars.getBar(instrument).getClose(), atr]  # 默认以收盘价开仓
+                print('open long')
+                print(bars.getDateTime())
                 order.append(ret)
 
-            elif long_lowwer[-1] < long_lowwer[-2] and postion[instrument] == 0:
+            elif long_lowwer[-1] < long_lowwer[-2] and postion.get(instrument, 0) == 0:
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, instrument, quantity)
                 self.openPriceAndATR[instrument] = [bars.getBar(instrument).getClose(), atr]  # 默认以收盘价开仓
+                print('open short')
+                print(bars.getDateTime())
                 order.append(ret)
             # 平仓
-            elif short_upper[-1] > short_upper[-2] and postion[instrument] < 0:  # 平空
+            elif short_upper[-1] > short_upper[-2] and postion.get(instrument, 0) < 0:  # 平空
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, instrument,
-                                                         postion[instrument])
+                                                         abs(postion[instrument]))
+                print('close short')
+                print(bars.getDateTime())
                 order.append(ret)
                 self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
 
-            elif short_lower[-1] < short_lower[-2] and postion[instrument] > 0:  # 平多
-                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, postion[instrument])
+            elif short_lower[-1] < short_lower[-2] and postion.get(instrument, 0) > 0:  # 平多
+                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, abs(postion[instrument]))
+                print('close long')
+                print(bars.getDateTime())
                 order.append(ret)
                 self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
 
             # 加仓 或止损
             elif instrument in self.openPriceAndATR:  # 表示已有持仓
-                if postion[instrument] > 0:  # 持有多仓
+                if postion.get(instrument, 0) > 0:  # 持有多仓
                     if self.openPriceAndATR[instrument][0] + 0.5 * atr < bars.getBar(instrument).getClose():
                         # 且价格超过了上次开仓价加0.5atr在加仓
                         ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, instrument,
                                                                  quantity)
                         self.openPriceAndATR[instrument][0] = bars.getBar(instrument).getClose()
+                        print('add long')
+                        print(bars.getDateTime())
                         order.append(ret)
 
                     elif self.openPriceAndATR[instrument][0] - 0.5 * atr > bars.getBar(instrument).getClose():
                         # 且价格小于了上次开仓价减0.5atr，则止损
                         ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument,
-                                                                 postion[instrument])
+                                                                 abs(postion[instrument]))
                         self.openPriceAndATR.pop(instrument)
+                        print('stop long')
+                        print(bars.getDateTime())
                         order.append(ret)
 
-                elif postion[instrument] < 0:  # 持有空仓
+                elif postion.get(instrument, 0) < 0:  # 持有空仓
                     if self.openPriceAndATR[instrument][0] - 0.5 * atr > bars.getBar(instrument).getClose():
                         # 且价格超过了开仓价加0.5atr 则加空
                         ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, instrument,
                                                                  quantity)
                         self.openPriceAndATR[instrument][0] = bars.getBar(instrument).getClose()
+                        print('add short')
+                        print(bars.getDateTime())
                         order.append(ret)
 
                     elif self.openPriceAndATR[instrument][0] + 0.5 * atr < bars.getBar(instrument).getClose():
                         # 且价格大于了上次开仓价加0.5atr，则止损
                         ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, instrument,
-                                                                 postion[instrument])
+                                                                 abs(postion[instrument]))
                         self.openPriceAndATR.pop(instrument)
+                        print('stop short')
+                        print(bars.getDateTime())
                         order.append(ret)
 
         allPos = 0
@@ -163,10 +184,9 @@ class TurtleTrade(strategy.BacktestingStrategy):
             else:  # 开仓的情况
                 if open_mark:
                     ins = item.getInstrument()
-                    exist = round(postion[ins] / self.getQuantity(ins, allAtr[ins]))
+                    exist = round(postion.get(ins, 0) / self.getQuantity(ins, allAtr[ins]))
                     if exist <= 3:  # 如果单个品种小于3个单位的持仓，就可以开
                         self.getBroker().submitOrder(item)
-
 
     def getQuantity(self, instrument, atr):
         """
@@ -178,12 +198,13 @@ class TurtleTrade(strategy.BacktestingStrategy):
 
         KQFileName = self.context.categoryToFile[instrument]
 
-        KQmultiplier = self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier']
+        KQmultiplier = \
+        self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
 
-        res = int(quantity / atr[-1] / 100 * KQmultiplier)  # 向下取整
+        res = int(quantity / atr / 100 / KQmultiplier)  # 向下取整
 
         if res:
-            return res
+            return res / 10  # 测试
         else:
             return 1  # 至少开1手
         # 账户的1%的权益，除去atr值，再除去合约乘数，即得张数。表示一个atr的标准波动让账户的权益变动1%

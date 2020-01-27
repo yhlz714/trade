@@ -108,7 +108,7 @@ if __name__ == '__main__':
     context = Context()
     context.categorys = ['rb']  # 给定所有要回测的品种
     context.categoryToFile = {'rb': 'KQi@SHFErb'}  # 品种和文件名转换dict
-    context.stg = SMACrossOver
+    context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
     bigFrame = Frame(context.root)
     frame = Frame(bigFrame)
 
-    cv = Canvas(frame, background='black')#, width=1800, height=400)
+    cv = Canvas(frame, background='black', width=800, height=400)
     cv.pack(fill=BOTH, expand=YES)
 
     v = StringVar()
@@ -154,8 +154,8 @@ if __name__ == '__main__':
     hbar.config(command=kline.redraw)
     bLeft = Button(frame1, text='backward', command=kline.backward)
     bRight = Button(frame1, text='forward', command=kline.forward)
-    bLeft.pack(side=LEFT, fill=BOTH)
-    bRight.pack(side=RIGHT, fill=BOTH)
+    bLeft.pack(side=LEFT, fill=BOTH, expand=YES)
+    bRight.pack(side=RIGHT, fill=BOTH, expand=YES)
     frame1.pack(side=BOTTOM, fill=BOTH)
 
     frame.pack(fill=BOTH, expand=YES)
@@ -164,8 +164,8 @@ if __name__ == '__main__':
     kline.draw()
     # 创建窗口
     backtest = threading.Thread(target=Backtest, name='backtest')
-    # backtest.start()
+    backtest.start()
 
-    # delay_deal()
+    delay_deal()
     context.root.mainloop()
     # backtest.join()
