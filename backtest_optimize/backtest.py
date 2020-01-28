@@ -50,7 +50,7 @@ def Backtest():
     context.myStrategy.run()
     for item in context.myStrategy.tech:
         for key in Data.keys():  # 此处如果key有多个，那么策略也需要按照key的顺序多个写。也就是多品种的情况
-            Data[key][item] = context.myStrategy.tech[item]  # 将技术指标写入画图的df中
+            Data[key][item] = context.myStrategy.tech[key][item]  # 将技术指标写入画图的df中
 
     time_compare = pd.DataFrame()
     time_compare['Time'] = retAnalyzer.getCumulativeReturns().getDateTimes()

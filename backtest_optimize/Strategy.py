@@ -47,12 +47,13 @@ class SMACrossOver(strategy.BacktestingStrategy):
             self.getBroker().submitOrder(ret)
 
 
+
 class TurtleTrade(strategy.BacktestingStrategy):
     """
     海龟交易策略
     """
 
-    def __init__(self, feed, instruments, context, dictOfDataDf, atrPeriod=20, short=20, long=55):
+    def __init__(self, feed, instruments, context, dictOfDataDf, atrPeriod=20 , short=20, long=55):
         """
         初始化
         :parm feed pyalgotrade 的feed对象，装了所有csv数据。类似于dict可以用中括号取值。
@@ -70,12 +71,25 @@ class TurtleTrade(strategy.BacktestingStrategy):
         else:
             self.instruments = [instruments]
         self.atrPeriod = atrPeriod
-        self.short = short
-        self.long = long
+        self.short = short * 300  # 测试
+        self.long = long * 300  # 测试
         self.dictOfDateDf = dictOfDataDf
         self.context = context
         self.generalTickInfo = pd.read_csv('../general_ticker_info.csv')
         self.openPriceAndATR = {}  # 用于记录每个品种的开仓价格与当时的atr
+        self.tech = {}
+
+        for instrument in self.instruments:
+            atr = talib.ATR(np.array(self.dictOfDateDf[instrument]['High']),
+                            np.array(self.dictOfDateDf[instrument]['Low']),
+                            np.array(self.dictOfDateDf[instrument]['Close']), self.atrPeriod)  # 返回的ndarray
+            long_upper = talib.MAX(np.array(self.dictOfDateDf[instrument]['High']), self.long)
+            long_lowwer = talib.MIN(np.array(self.dictOfDateDf[instrument]['Low']), self.long)
+            short_upper = talib.MAX(np.array(self.dictOfDateDf[instrument]['High']), self.short)
+            short_lower = talib.MIN(np.array(self.dictOfDateDf[instrument]['Low']), self.short)
+
+            self.tech[instrument] = {'atr': atr, 'long upper': long_upper, 'long lowwer': long_lowwer,
+                                     'short upper': short_upper, 'short lower': short_lower}
 
     def onBars(self, bars):
         self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
@@ -90,10 +104,10 @@ class TurtleTrade(strategy.BacktestingStrategy):
                 continue
             allAtr[instrument] = atr
             quantity = self.getQuantity(instrument, atr)
-            long_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.long + 1)
-            long_lowwer = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.long + 1)
-            short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short + 1)
-            short_lower = talib.MAX(np.array(self.feed[instrument].getLowDataSeries()), self.short + 1)
+            long_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.long)
+            long_lowwer = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.long)
+            short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short)
+            short_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.short)
 
             high = self.feed[instrument].getHighDataSeries()
             low = self.feed[instrument].getLowDataSeries()
