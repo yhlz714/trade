@@ -3,6 +3,7 @@ strategy file ,include all strategy nothing else
 Version = 1.0
 """
 
+import time
 from pyalgotrade import strategy
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
@@ -47,13 +48,12 @@ class SMACrossOver(strategy.BacktestingStrategy):
             self.getBroker().submitOrder(ret)
 
 
-
 class TurtleTrade(strategy.BacktestingStrategy):
     """
     海龟交易策略
     """
 
-    def __init__(self, feed, instruments, context, dictOfDataDf, atrPeriod=20 , short=20, long=55):
+    def __init__(self, feed, instruments, context, dictOfDataDf, atrPeriod=20, short=20, long=55):
         """
         初始化
         :parm feed pyalgotrade 的feed对象，装了所有csv数据。类似于dict可以用中括号取值。
@@ -71,47 +71,56 @@ class TurtleTrade(strategy.BacktestingStrategy):
         else:
             self.instruments = [instruments]
         self.atrPeriod = atrPeriod
-        self.short = short * 300  # 测试
-        self.long = long * 300  # 测试
+        self.short = short #* 300  # 测试
+        self.long = long #* 300  # 测试
         self.dictOfDateDf = dictOfDataDf
         self.context = context
         self.generalTickInfo = pd.read_csv('../general_ticker_info.csv')
         self.openPriceAndATR = {}  # 用于记录每个品种的开仓价格与当时的atr
+        self.i = 0  # 计数，用于确定计数指标的位置
         self.tech = {}
-
         for instrument in self.instruments:
             atr = talib.ATR(np.array(self.dictOfDateDf[instrument]['High']),
                             np.array(self.dictOfDateDf[instrument]['Low']),
                             np.array(self.dictOfDateDf[instrument]['Close']), self.atrPeriod)  # 返回的ndarray
             long_upper = talib.MAX(np.array(self.dictOfDateDf[instrument]['High']), self.long)
-            long_lowwer = talib.MIN(np.array(self.dictOfDateDf[instrument]['Low']), self.long)
+            long_lower = talib.MIN(np.array(self.dictOfDateDf[instrument]['Low']), self.long)
             short_upper = talib.MAX(np.array(self.dictOfDateDf[instrument]['High']), self.short)
             short_lower = talib.MIN(np.array(self.dictOfDateDf[instrument]['Low']), self.short)
 
-            self.tech[instrument] = {'atr': atr, 'long upper': long_upper, 'long lowwer': long_lowwer,
+            self.tech[instrument] = {'atr': atr, 'long upper': long_upper, 'long lower': long_lower,
                                      'short upper': short_upper, 'short lower': short_lower}
 
     def onBars(self, bars):
+        print(bars.getDateTime())
         self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
         order = []
         allAtr = {}
         postion = self.getBroker().getPositions()
         for instrument in self.instruments:
-            atr = talib.ATR(np.array(self.feed[instrument].getHighDataSeries()),
-                            np.array(self.feed[instrument].getLowDataSeries()),
-                            np.array(self.feed[instrument].getCloseDataSeries()), self.atrPeriod)[-1]  # 返回的ndarray
+            t1 = time.time()
+            # atr = talib.ATR(np.array(self.feed[instrument].getHighDataSeries()),
+            #                 np.array(self.feed[instrument].getLowDataSeries()),
+            #                 np.array(self.feed[instrument].getCloseDataSeries()), self.atrPeriod)[-1]  # 返回的ndarray
+            # if np.isnan(atr):  # 为nan说明数据还不够，不做计算。
+            #     continue
+            # allAtr[instrument] = atr
+            # quantity = self.getQuantity(instrument, atr)
+            # long_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.long)
+            # long_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.long)
+            # short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short)
+            # short_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.short)
+
+            atr = self.tech[instrument]['atr'][-1]
             if np.isnan(atr):  # 为nan说明数据还不够，不做计算。
                 continue
-            allAtr[instrument] = atr
             quantity = self.getQuantity(instrument, atr)
-            long_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.long)
-            long_lowwer = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.long)
-            short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short)
-            short_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.short)
-
-            high = self.feed[instrument].getHighDataSeries()
-            low = self.feed[instrument].getLowDataSeries()
-
+            long_upper = self.tech[instrument]['long upper'][-2:]
+            long_lower = self.tech[instrument]['long lower'][-2:]
+            short_lower = self.tech[instrument]['short lower'][-2:]
+            short_upper = self.tech[instrument]['short upper'][-2:]
+            t2 = time.time()
+            # print(t2 - t1)
             # 开仓。
             if long_upper[-1] > long_upper[-2] and postion.get(instrument, 0) == 0:  # 当期上界变高表示创新高，新低同理
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, instrument, quantity)
@@ -120,7 +129,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                 print(bars.getDateTime())
                 order.append(ret)
 
-            elif long_lowwer[-1] < long_lowwer[-2] and postion.get(instrument, 0) == 0:
+            elif long_lower[-1] < long_lower[-2] and postion.get(instrument, 0) == 0:
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, instrument, quantity)
                 self.openPriceAndATR[instrument] = [bars.getBar(instrument).getClose(), atr]  # 默认以收盘价开仓
                 print('open short')
@@ -181,7 +190,10 @@ class TurtleTrade(strategy.BacktestingStrategy):
                         print('stop short')
                         print(bars.getDateTime())
                         order.append(ret)
+            t3 = time.time()
+            # print(t3 - t2)
 
+        t3 = time.time()
         allPos = 0
         for instrument in postion:
             allPos += round(postion[instrument] / self.getQuantity(instrument, allAtr[instrument]))
@@ -201,6 +213,9 @@ class TurtleTrade(strategy.BacktestingStrategy):
                     exist = round(postion.get(ins, 0) / self.getQuantity(ins, allAtr[ins]))
                     if exist <= 3:  # 如果单个品种小于3个单位的持仓，就可以开
                         self.getBroker().submitOrder(item)
+        self.i += 1  # 自增以移向下一个计数指标的值
+        t4 = time.time()
+        # print(t4 - t3)
 
     def getQuantity(self, instrument, atr):
         """
@@ -213,7 +228,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
         KQFileName = self.context.categoryToFile[instrument]
 
         KQmultiplier = \
-        self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
+            self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
 
         res = int(quantity / atr / 100 / KQmultiplier)  # 向下取整
 

@@ -283,7 +283,7 @@ class DATA():
                                parse_dates=['Date Time'])
             file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True) #测试
             file.to_csv('temp.csv', index=False)
-            res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=1000000)
+            res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=10000)
             res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
             res.addBarsFromCSV(category, 'temp.csv')
             Data[category] = file
