@@ -92,7 +92,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                                      'short upper': short_upper, 'short lower': short_lower}
 
     def onBars(self, bars):
-        print(bars.getDateTime())
+        # print(bars.getDateTime())
         self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
         order = []
         allAtr = {}
@@ -111,14 +111,15 @@ class TurtleTrade(strategy.BacktestingStrategy):
             # short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short)
             # short_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.short)
 
-            atr = self.tech[instrument]['atr'][-1]
+            atr = self.tech[instrument]['atr'][self.i]
+            allAtr[instrument] = atr
             if np.isnan(atr):  # 为nan说明数据还不够，不做计算。
                 continue
             quantity = self.getQuantity(instrument, atr)
-            long_upper = self.tech[instrument]['long upper'][-2:]
-            long_lower = self.tech[instrument]['long lower'][-2:]
-            short_lower = self.tech[instrument]['short lower'][-2:]
-            short_upper = self.tech[instrument]['short upper'][-2:]
+            long_upper = self.tech[instrument]['long upper'][:self.i+1]
+            long_lower = self.tech[instrument]['long lower'][:self.i+1]
+            short_lower = self.tech[instrument]['short lower'][:self.i+1]
+            short_upper = self.tech[instrument]['short upper'][:self.i+1]
             t2 = time.time()
             # print(t2 - t1)
             # 开仓。

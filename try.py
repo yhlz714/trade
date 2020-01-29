@@ -1,7 +1,13 @@
 import global_var
-import  strategy
+import threading
+import time
 
+def tt():
+    while True:
+        print('123')
+        time.sleep(2)
 
 if __name__ == '__main__':
-    global_var.put('a', 1)
-    strategy.tt()
+    t = threading.Thread(target=tt)
+    t.start()
+    t.join()

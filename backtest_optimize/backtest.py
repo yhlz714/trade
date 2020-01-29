@@ -48,8 +48,8 @@ def Backtest():
     # print(myStrategy.getBroker().getCommission())
     print(time.ctime())
     context.myStrategy.run()
-    for item in context.myStrategy.tech:
-        for key in Data.keys():  # 此处如果key有多个，那么策略也需要按照key的顺序多个写。也就是多品种的情况
+    for key in Data.keys():  # 此处如果key有多个，那么策略也需要按照key的顺序多个写。也就是多品种的情况
+        for item in context.myStrategy.tech[key]:
             Data[key][item] = context.myStrategy.tech[key][item]  # 将技术指标写入画图的df中
 
     time_compare = pd.DataFrame()
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     kline.draw()
     # 创建窗口
     backtest = threading.Thread(target=Backtest, name='backtest')
-    backtest.start()
+    backtest.run()
 
     delay_deal()
     context.root.mainloop()
