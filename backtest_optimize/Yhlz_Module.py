@@ -309,9 +309,9 @@ class Kline():
         self.canvas.width = int(self.canvas['width'])  # 将固定的宽度和高度变为属性,本来是str 需要int强制转换
         self.canvas.height = int(self.canvas['height'])  # 如果发生<Configure>事件，也可以修改这两个
         self.scrollbar = scrollbar
+        self.instrument = 'rb'  # 默认画rb的图，用来标识现在画哪个的图。
         self.Data = Data
         self.addData(Data)
-        self.instrument = 'rb'  # 默认画rb的图，用来标识现在画哪个的图。
         self.tech = {}
 
         self.num = 200  # 默认画的k线数目
@@ -355,7 +355,7 @@ class Kline():
         :return:
         """
         self.tech = tech
-        self.techAnaly = tech[self.instrument]
+        self.techAnaly = tech[self.instrument].keys()
         self.draw()
 
 
