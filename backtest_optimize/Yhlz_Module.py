@@ -311,6 +311,8 @@ class Kline():
         self.scrollbar = scrollbar
         self.Data = Data
         self.addData(Data)
+        self.instrument = 'rb'  # 默认画rb的图，用来标识现在画哪个的图。
+        self.tech = {}
 
         self.num = 200  # 默认画的k线数目
         self.place = -1
@@ -345,14 +347,17 @@ class Kline():
         self.width = 0
         self.height = 0
 
+
     def configTechAnaly(self, tech):
         """
         接受所有guiDF要画的技术指标列
         :param args: 元组的列名
         :return:
         """
-        self.techAnaly = tech
+        self.tech = tech
+        self.techAnaly = tech[self.instrument]
         self.draw()
+
 
     def addData(self, Data):
         """
@@ -361,9 +366,7 @@ class Kline():
         :return: None
         """
 
-        for guiDF in Data:
-            self.guiDF = Data[guiDF]
-            break
+        self.guiDF = Data[self.instrument]
 
         self.guiDF['Date Time'] = pd.to_datetime(self.guiDF['Date Time'])
         self.guiDF.sort_values(by=['Date Time'], ascending=False)  # 降序排列
@@ -372,6 +375,7 @@ class Kline():
         order = ['Date Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
         if (self.guiDF.columns[0:7] != order).any():
             print('column name order error!')
+
 
     def draw(self, place=-1):
         """
@@ -611,6 +615,15 @@ class Kline():
         self.canvas.height = event.height
         self.canvas.delete(ALL)
         self.draw(self.place)
+
+    def changeInstrument(self, instrument):
+        """
+        更改要显示的品种
+        :return:
+        """
+        self.instrument = instrument
+        self.addData(self.Data)  # 更改guiDf
+        self.configTechAnaly(self.tech)  # 更改对应的可显示的列名，并且重画。
 
 
 if __name__ == '__main__':

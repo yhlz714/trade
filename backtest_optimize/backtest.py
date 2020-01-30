@@ -108,7 +108,7 @@ if __name__ == '__main__':
     context = Context()
     context.categorys = ['rb']  # 给定所有要回测的品种
     context.categoryToFile = {'rb': 'KQi@SHFErb'}  # 品种和文件名转换dict
-    context.stg = TurtleTrade
+    context.stg = SMACrossOver
     context.backtectDone = False
     print(time.ctime())
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     cv.bind('<KeyPress-Up>', func=kline.bigger)
     cv.bind('<KeyPress-Down>', func=kline.smaller)
     cv.bind('<Configure>', kline.updateConfig)
-    context.root.bind('<<finished>>', lambda ev: kline.configTechAnaly([i for i in context.myStrategy.tech]))
+    context.root.bind('<<finished>>', lambda ev: kline.configTechAnaly([i for i in context.stg.tech]))
 
     hbar.config(command=kline.redraw)
     bLeft = Button(frame1, text='backward', command=kline.backward)

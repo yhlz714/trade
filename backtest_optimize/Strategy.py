@@ -24,7 +24,7 @@ class SMACrossOver(strategy.BacktestingStrategy):
         length = len(dictOfDataDf[list(dictOfDataDf.keys())[0]])  # 拿出第一个df的长度
         self.sma = ma.SMA(self.prices, 108, maxLen=length)
         self.sma1 = ma.SMA(self.prices, 694, maxLen=length)
-        self.tech = {'sma short': self.sma, 'sma long': self.sma1}
+        self.tech = {instrument: {'sma short': self.sma, 'sma long': self.sma1}}
 
     def getSMA(self):
         return self.sma
@@ -32,14 +32,13 @@ class SMACrossOver(strategy.BacktestingStrategy):
     def onBars(self, bars):
 
         quantity = 100
-        print('zxc')
         if cross.cross_above(self.sma, self.sma1) > 0:
             if self.getBroker().getShares(self.__instrument) != 0:
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
             ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, self.__instrument, quantity)
             self.getBroker().submitOrder(ret)
-            # print(bars.getDateTime())
+            print(bars.getDateTime())
         elif cross.cross_below(self.sma, self.sma1) > 0:
             if self.getBroker().getShares(self.__instrument) != 0:
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, self.__instrument, quantity)
