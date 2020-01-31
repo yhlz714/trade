@@ -1,6 +1,5 @@
 """
 YHLZ的回测系统基于pyalgotrade
-Version = 2.0
 """
 
 
@@ -169,4 +168,4 @@ if __name__ == '__main__':
 
     delay_deal()
     context.root.mainloop()
-    # backtest.join()
+    backtest.join()

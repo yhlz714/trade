@@ -12,5 +12,8 @@ def bbb(event):
     print('ok')
 root.bind('<<try>>',bbb)
 root.bind('<Button-1>',yyy)
+cv = Canvas(root)
+cv.create_line([0, 0, 100, 100], arrow='last')
+cv.pack()
 
 root.mainloop()

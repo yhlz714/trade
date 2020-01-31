@@ -1,6 +1,5 @@
 """
 all backtest or optimize module in here
-Version = 1.2
 """
 import os
 import socket
@@ -141,7 +140,7 @@ class Yhlz_Trade(trades.Trades):
         strat.getBroker().getOrderUpdatedEvent().subscribe(self.__onOrderEvent)
 
 
-class DATA():
+class DATA:
     """
     用于从服务器获取数据
     """
@@ -235,7 +234,7 @@ class DATA():
         if temp == 0:
             conn = sqlite3.connect('./future_data.db')
             c = conn.cursor()
-            general_tick_info = pd.read_csv('../general_tiker_info.csv')
+            general_tick_info = pd.read_csv('../general_ticker_info.csv')
 
             self.start_server('server_new.py')
 
@@ -253,7 +252,8 @@ class DATA():
             #             os.remove(str(item).replace('.', '') + '.csv')
 
             for item in general_tick_info.index_name:
-                a = c.execute('SELECT [DATE TIME] FROM [' + item.replace('.', '') + '] ORDER BY [DATE TIME] DESC LIMIT 1')
+                a = c.execute(
+                    'SELECT [DATE TIME] FROM [' + item.replace('.', '') + '] ORDER BY [DATE TIME] DESC LIMIT 1')
                 for i in a:
                     start_time = pd.to_datetime(i[0]).timestamp()
                     if start_time < time.time():  # 小于当前时间
@@ -270,7 +270,6 @@ class DATA():
         else:
             print('network error, data not update!')
 
-
     def feed(self):  # can also use other file if exist
         '''
         通过本地数据库文件读出csv，创建创建数据源对象
@@ -281,7 +280,7 @@ class DATA():
         for category in self.context.categorys:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
-            file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True) #测试
+            file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True)  # 测试
             file.to_csv('temp.csv', index=False)
             res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=10000)
             res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
@@ -293,7 +292,7 @@ class DATA():
         return Data, res
 
 
-class Kline():
+class Kline:
 
     def __init__(self, canvas, scrollbar, v, Data=None):
         """
@@ -347,7 +346,6 @@ class Kline():
         self.width = 0
         self.height = 0
 
-
     def configTechAnaly(self, tech):
         """
         接受所有guiDF要画的技术指标列
@@ -357,7 +355,6 @@ class Kline():
         self.tech = tech
         self.techAnaly = tech[self.instrument].keys()
         self.draw()
-
 
     def addData(self, Data):
         """
@@ -375,7 +372,6 @@ class Kline():
         order = ['Date Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
         if (self.guiDF.columns[0:7] != order).any():
             print('column name order error!')
-
 
     def draw(self, place=-1):
         """
@@ -458,13 +454,20 @@ class Kline():
                                                  (i + 2 * self.delta, dataTemp.iloc[j, 1]),
                                                  fill='black', outline=color)
             # 给横坐标写数值
-            if xPlace and i - widthDelta < xPlace[-1] and i >= xPlace[-1]:
+            if xPlace and i - widthDelta < xPlace[-1] <= i:
                 text = str(dataTemp.iloc[j, 0])
                 self.canvas.create_text(i, self.height + 5, text=text, fill='white')
                 xPlace.pop()
-            x.append(i)
-            i -= widthDelta
-            j -= 1
+
+            # 给交易结果在图上做标注
+            if 'instrument' in dataTemp and 'action' in dataTemp:  # 表示此时已经有交易结果了。
+                if 'BUY' in dataTemp.loc[i, 'action']:
+                    self.canvas.create_line((i + self.delta, 0), (i + self.delta, 10), arrow='first')  # 买，在最开始画
+                elif 'SELL' in dataTemp.loc[i, 'action']:
+                    self.canvas.create_line((i + self.delta, 0), (i + self.delta, 10), arrow='last')  # 卖，在最后画
+        x.append(i)
+        i -= widthDelta
+        j -= 1
 
         # 对于每一个技术指标对设置一个键值对
         allTechCord = {}
@@ -476,10 +479,10 @@ class Kline():
         for i in range(len(x)):
             for j in self.techAnaly:
                 allTechCord[j].append(x[i])
-                allTechCord[j].append(dataTemp.loc[length - i - 1, j])  #
+                allTechCord[j].append(dataTemp.loc[length - i - 1, j])  # 画线需要【x,y,x,y,x,y】 这样的一系列坐标
 
         for i in self.techAnaly:
-            # 画曲线，移动平均线
+            # 画曲线，移动平均线或其他技术指标线
             self.canvas.create_line(allTechCord[i], fill=self.colors[np.random.randint(len(self.colors))], width=2,
                                     smooth=True, splinesteps=10)
 
@@ -495,7 +498,6 @@ class Kline():
             self.canvas.delete(ALL)
             self.place = round(float(args[1]) * len(self.guiDF))
             self.draw(self.place)
-
         self.sendback()
 
     def sendback(self):
