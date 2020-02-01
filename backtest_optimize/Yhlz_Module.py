@@ -461,13 +461,15 @@ class Kline:
 
             # 给交易结果在图上做标注
             if 'instrument' in dataTemp and 'action' in dataTemp:  # 表示此时已经有交易结果了。
-                if 'BUY' in dataTemp.loc[i, 'action']:
-                    self.canvas.create_line((i + self.delta, 0), (i + self.delta, 10), arrow='first')  # 买，在最开始画
-                elif 'SELL' in dataTemp.loc[i, 'action']:
-                    self.canvas.create_line((i + self.delta, 0), (i + self.delta, 10), arrow='last')  # 卖，在最后画
-        x.append(i)
-        i -= widthDelta
-        j -= 1
+                if pd.notna(dataTemp.loc[j, 'action']) and 'BUY' in dataTemp.loc[j, 'action']:
+                    self.canvas.create_line((i + self.delta, 0), (i + self.delta, 10), arrow='first', fill='red')
+                    # 买，在最开始画
+                elif pd.notna(dataTemp.loc[j, 'action']) and 'SELL' in dataTemp.loc[j, 'action']:
+                    self.canvas.create_line((i + self.delta, 0), (i + self.delta, 10), arrow='last', fill='green')
+                    # 卖，在最后画
+            x.append(i)
+            i -= widthDelta
+            j -= 1
 
         # 对于每一个技术指标对设置一个键值对
         allTechCord = {}

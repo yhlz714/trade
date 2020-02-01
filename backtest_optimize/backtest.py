@@ -107,7 +107,7 @@ class Context:
 if __name__ == '__main__':
     context = Context()
     context.categorys = ['rb']  # 给定所有要回测的品种
-    context.categoryToFile = {'rb': 'KQi@SHFErb'}  # 品种和文件名转换dict
+    context.categoryToFile = {'rb': 'KQi@SHFErb', 'if': 'KQi@CFFEXIF'}  # 品种和文件名转换dict
     context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())
