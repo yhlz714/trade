@@ -7,6 +7,9 @@ import threading
 
 from pyalgotrade.stratanalyzer import sharpe
 from pyalgotrade.stratanalyzer import drawdown
+from matplotlib import pyplot as plt
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
 
 from backtest_optimize.Yhlz_Module import *
 from backtest_optimize.Strategy import *
@@ -32,7 +35,7 @@ def Backtest():
 
     global context, Data, feed
     # ???怎么搞定策略不同传入参数的问题
-    context.myStrategy = context.stg(feed, "rb", context, Data)
+    context.myStrategy = context.stg(feed, context.categorys, context, Data)
 
     retAnalyzer = returns.Returns(maxLen=1000000)
     context.myStrategy.attachAnalyzer(retAnalyzer)
@@ -61,17 +64,17 @@ def Backtest():
     print("Cumulative returns: %.2f %%" % (retAnalyzer.getCumulativeReturns()[-1] * 100))
 
     # 画图
-    # fig, ax1 = plt.subplots()
-    # temp = feed.getDataSeries().getCloseDataSeries().getDateTimes()
-    # ax1.plot(temp, feed.getDataSeries().getCloseDataSeries())
-    # ax2 = ax1.twinx()
-    # ax2.plot(temp, list(retAnalyzer.getCumulativeReturns()), color='r')
-    # plt.show()
+    fig, ax1 = plt.subplots()
+    temp = feed.getDataSeries().getCloseDataSeries().getDateTimes()
+    ax1.plot(temp, feed.getDataSeries().getCloseDataSeries())
+    ax2 = ax1.twinx()
+    ax2.plot(temp, list(retAnalyzer.getCumulativeReturns()), color='r')
+    plt.show()
 
     print("Sharpe ratio: %.2f" % (sharpeRatioAnalyzer.getSharpeRatio(0.05)))
     print("Max. drawdown: %.2f %%" % (drawDownAnalyzer.getMaxDrawDown() * 100))
     print("Longest drawdown duration: %s" % (drawDownAnalyzer.getLongestDrawDownDuration()))
-    # print(tradeAnalyzer.all_trade)
+    print(tradeAnalyzer.all_trade)
 
     for key in Data.keys():
         Data[key]['volume'] = np.nan
@@ -88,6 +91,7 @@ def Backtest():
                    ['instrument', 'action', 'price', 'volume']] = tempList
         # 重新写回dict
         Data[tradeAnalyzer.all_trade.loc[i, 'instrument']] = tempDF
+    context.all_trade = tradeAnalyzer.all_trade
     context.backtectDone = True
     print('done')
 
@@ -106,8 +110,8 @@ class Context:
 
 if __name__ == '__main__':
     context = Context()
-    context.categorys = ['rb']  # 给定所有要回测的品种
-    context.categoryToFile = {'rb': 'KQi@SHFErb', 'if': 'KQi@CFFEXIF'}  # 品种和文件名转换dict
+    context.categorys = ['i']  # 给定所有要回测的品种
+    context.categoryToFile = {'i': 'KQi@DCEi'}  # 品种和文件名转换dict
     context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())
@@ -136,13 +140,13 @@ if __name__ == '__main__':
     hbar.pack(side=BOTTOM, fill=BOTH)
     hbar.set(1, 1)
     frame1 = Frame(frame)
-    kline = Kline(cv, hbar, v, Data)
+    kline = Kline(cv, hbar, v, Data, context.categorys[0])
     # kline.configTechAnaly([i for i in context.stg.tech])  # 设置要画的计算指标
     #
     # # 对于输入框输入的命令在当前环境下执行
     #
     entry.bind('<Button-1>', lambda x, e=entry: e.focus_set())
-    entry.bind('<Return>', lambda x, e=entry: kline.Eval(x, e))
+    entry.bind('<Return>', lambda x, e=entry: kline.Eval(x, context, e))
     cv.bind('<Button-1>', kline.click)
     cv.bind('<Motion>', kline.mouseMove)
     cv.bind('<Button-3>', kline.click2)

@@ -8,6 +8,7 @@ import math
 import platform
 from tkinter import *
 import sqlite3
+import traceback
 
 import paramiko
 import pandas as pd
@@ -280,9 +281,9 @@ class DATA:
         for category in self.context.categorys:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
-            file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True)  # 测试
+            # file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True)  # 测试
             file.to_csv('temp.csv', index=False)
-            res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=10000)
+            res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=2000000)
             res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
             res.addBarsFromCSV(category, 'temp.csv')
             Data[category] = file
@@ -294,12 +295,12 @@ class DATA:
 
 class Kline:
 
-    def __init__(self, canvas, scrollbar, v, Data=None):
+    def __init__(self,  canvas, scrollbar, v, Data=None, instrument='rb'):
         """
         画k线图类
         :param canvas: 画布widget
         :param scrollbar: 滚动条widget
-        :param v: label的显示字符串
+        :param v: label的显示字符串变量
         :param data: 包含某个品种的所有数据的df，列应该有'Datetime','Open','High','Low','Close','Adjclose'
         """
         self.v = v
@@ -308,7 +309,7 @@ class Kline:
         self.canvas.width = int(self.canvas['width'])  # 将固定的宽度和高度变为属性,本来是str 需要int强制转换
         self.canvas.height = int(self.canvas['height'])  # 如果发生<Configure>事件，也可以修改这两个
         self.scrollbar = scrollbar
-        self.instrument = 'rb'  # 默认画rb的图，用来标识现在画哪个的图。
+        self.instrument = instrument  # 默认画rb的图，用来标识现在画哪个的图。
         self.Data = Data
         self.addData(Data)
         self.tech = {}
@@ -604,10 +605,13 @@ class Kline:
         self.canvas.delete(ALL)
         self.draw(self.place)
 
-    def Eval(self, event, entry):
+    def Eval(self, event, context, entry):
         # 可以用 self.guiDF = self.Data[] 取某个品种来控制gui画出不同时刻的品种的图
-        eval(entry.get())
-        entry.set('')
+        try:
+            temp = eval(entry.get())
+        except Exception as e:
+            temp = traceback.format_exc()
+        self.v.set(temp)
 
     def updateConfig(self, event):
         """
