@@ -292,6 +292,24 @@ class DATA:
         conn.close()
         return Data, res
 
+    def resample(self, fileDf: pd.Dataframe, frequency)-> pd.DataFrame:
+        """
+        对从数据库里面读取的数据重新采样
+        :param fileDf: df
+        :param frequency: str 频率
+        :return:
+        """
+        fileDf.set_index('Date Time', inplace=True)
+        tempDf = pd.DataFrame()
+        tempDf['Open'] = fileDf.resample(frequency).first()['Open']
+        tempDf['High'] = fileDf.resample(frequency).max()['High']
+        tempDf['Low'] = fileDf.resample(frequency).min()['Low']
+        tempDf['Close'] = fileDf.resample(frequency).last()['Close']
+        tempDf['Volume'] = fileDf.resample(frequency).sum()['Volume']
+        tempDf.index = fileDf.resample(frequency).first().index
+        return tempDf.reset_index()
+
+
 
 class Kline:
 
@@ -635,6 +653,6 @@ class Kline:
 
 
 if __name__ == '__main__':
-    pass
+    # 直接调用下载数据
     data = DATA(1)
     data.checkDataUpdate()
