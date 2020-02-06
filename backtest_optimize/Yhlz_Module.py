@@ -271,10 +271,11 @@ class DATA:
         else:
             print('network error, data not update!')
 
-    def feed(self):  # can also use other file if exist
+    def feed(self, day=False):  # can also use other file if exist
         '''
         通过本地数据库文件读出csv，创建创建数据源对象
         遍历context的category给所有品种读入数据
+        :param day 如果为真，使用日线数据。
         '''
         conn = sqlite3.connect('./future_data.db')
         Data = {}
@@ -282,9 +283,14 @@ class DATA:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
             # file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True)  # 测试
+            if day:
+                file = self._resample(file, 'D')
             file.to_csv('temp.csv', index=False)
             res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=2000000)
-            res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
+            if day:
+                res.setDateTimeFormat('%Y-%m-%d')
+            else:
+                res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
             res.addBarsFromCSV(category, 'temp.csv')
             Data[category] = file
 
@@ -292,7 +298,7 @@ class DATA:
         conn.close()
         return Data, res
 
-    def resample(self, fileDf: pd.Dataframe, frequency)-> pd.DataFrame:
+    def _resample(self, fileDf: pd.DataFrame(), frequency) -> pd.DataFrame():
         """
         对从数据库里面读取的数据重新采样
         :param fileDf: df
@@ -306,14 +312,15 @@ class DATA:
         tempDf['Low'] = fileDf.resample(frequency).min()['Low']
         tempDf['Close'] = fileDf.resample(frequency).last()['Close']
         tempDf['Volume'] = fileDf.resample(frequency).sum()['Volume']
+        tempDf['Adj Close'] = 0
         tempDf.index = fileDf.resample(frequency).first().index
+        tempDf = tempDf.loc[pd.notna(tempDf['Open'])]
         return tempDf.reset_index()
-
 
 
 class Kline:
 
-    def __init__(self,  canvas, scrollbar, v, Data=None, instrument='rb'):
+    def __init__(self, canvas, scrollbar, v, Data=None, instrument='rb'):
         """
         画k线图类
         :param canvas: 画布widget
@@ -389,8 +396,7 @@ class Kline:
 
         # 检查是否按照规定顺序排列，以便后面减少计算时间
         order = ['Date Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
-        if (self.guiDF.columns[0:7] != order).any():
-            print('column name order error!')
+
 
     def draw(self, place=-1):
         """

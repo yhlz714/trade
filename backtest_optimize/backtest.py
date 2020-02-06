@@ -110,15 +110,15 @@ class Context:
 
 if __name__ == '__main__':
     context = Context()
-    context.categorys = ['i']  # 给定所有要回测的品种
-    context.categoryToFile = {'i': 'KQi@DCEi'}  # 品种和文件名转换dict
+    context.categorys = ['rb']  # 给定所有要回测的品种
+    context.categoryToFile = {'rb': 'KQi@SHFErb'}  # 品种和文件名转换dict
     context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())
 
     # 读取以及处理数据
     data = DATA(context)
-    Data, feed = data.feed()
+    Data, feed = data.feed(True)
 
     # 或许可以读取csv文件然后，直接一次性导入各种设置。这里也有，可用于修改少数，这里的优先级高于csv文件。
     context.root = Tk()

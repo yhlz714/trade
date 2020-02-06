@@ -70,8 +70,8 @@ class TurtleTrade(strategy.BacktestingStrategy):
         else:
             self.instruments = [instruments]
         self.atrPeriod = atrPeriod
-        self.short = short * 300  # 测试
-        self.long = long * 300  # 测试
+        self.short = short # * 300  # 测试
+        self.long = long # * 300  # 测试
         self.dictOfDateDf = dictOfDataDf
         self.context = context
         self.generalTickInfo = pd.read_csv('../general_ticker_info.csv')
@@ -110,7 +110,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
             # short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short)
             # short_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.short)
 
-            atr = self.tech[instrument]['atr'][self.i] * 50#测试
+            atr = self.tech[instrument]['atr'][self.i] #* 50#测试
             allAtr[instrument] = atr
             if np.isnan(atr):  # 为nan说明数据还不够，不做计算。
                 continue
@@ -230,7 +230,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
         KQmultiplier = \
             self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
 
-        res = int(quantity / atr / 100 / KQmultiplier / 10)  # 向下取整 / 10 是测试
+        res = int(quantity / atr / 100 / KQmultiplier )  # 向下取整
 
         if res:
             return res
