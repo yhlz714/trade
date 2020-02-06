@@ -233,6 +233,8 @@ class DATA:
             temp = os.system('ping 106.52.184.131')
 
         if temp == 0:
+            os.system('rm ./future_data.db.bak')  # 备份
+            os.system('cp ./future_data.db ./future_data.db.bak')
             conn = sqlite3.connect('./future_data.db')
             c = conn.cursor()
             general_tick_info = pd.read_csv('../general_ticker_info.csv')
