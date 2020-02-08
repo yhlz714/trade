@@ -64,17 +64,22 @@ def Backtest():
     print("Cumulative returns: %.2f %%" % (retAnalyzer.getCumulativeReturns()[-1] * 100))
 
     # 画图
-    fig, ax1 = plt.subplots()
-    temp = feed.getDataSeries().getCloseDataSeries().getDateTimes()
-    ax1.plot(temp, feed.getDataSeries().getCloseDataSeries())
-    ax2 = ax1.twinx()
-    ax2.plot(temp, list(retAnalyzer.getCumulativeReturns()), color='r')
+
+    # 画叠加品种图, 多品种时不方便对齐时间，所以暂时不画。
+    # fig, ax1 = plt.subplots()
+    # temp = feed.getDataSeries().getCloseDataSeries().getDateTimes()
+    # ax1.plot(temp, feed.getDataSeries().getCloseDataSeries())
+    # ax2 = ax1.twinx()
+    # ax2.plot(temp, list(retAnalyzer.getCumulativeReturns()), color='r')
+    # plt.show()
+
+    plt.plot(retAnalyzer.getCumulativeReturns().getDateTimes(), list(retAnalyzer.getCumulativeReturns()), color='r')
     plt.show()
 
     print("Sharpe ratio: %.2f" % (sharpeRatioAnalyzer.getSharpeRatio(0.05)))
     print("Max. drawdown: %.2f %%" % (drawDownAnalyzer.getMaxDrawDown() * 100))
     print("Longest drawdown duration: %s" % (drawDownAnalyzer.getLongestDrawDownDuration()))
-    print(tradeAnalyzer.all_trade)
+    tradeAnalyzer.all_trade.to_csv(str(time.time()) + '.csv')
 
     for key in Data.keys():
         Data[key]['volume'] = np.nan
@@ -110,8 +115,8 @@ class Context:
 
 if __name__ == '__main__':
     context = Context()
-    context.categorys = ['rb']  # 给定所有要回测的品种
-    context.categoryToFile = {'rb': 'KQi@SHFErb'}  # 品种和文件名转换dict
+    context.categorys = ['rb', 'i', 'IF']  # 给定所有要回测的品种
+    context.categoryToFile = {'rb': 'KQi@SHFErb', 'i': 'KQi@DCEi', 'IF': 'KQi@CFFEXIF'}  # 品种和文件名转换dict
     context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())

@@ -70,14 +70,14 @@ class TurtleTrade(strategy.BacktestingStrategy):
         else:
             self.instruments = [instruments]
         self.atrPeriod = atrPeriod
-        self.short = short # * 300  # 测试
-        self.long = long # * 300  # 测试
+        self.short = short  # * 300  # 测试
+        self.long = long  # * 300  # 测试
         self.dictOfDateDf = dictOfDataDf
         self.context = context
         self.generalTickInfo = pd.read_csv('../general_ticker_info.csv')
         self.openPriceAndATR = {}  # 用于记录每个品种的开仓价格与当时的atr
-        self.i = 0  # 计数，用于确定计数指标的位置
         self.tech = {}
+        # self.max = 0  # 用来存储最大的历史数据有多长， 以计算此时到了哪一根k线，以方便用 -(self.max - self.i) 来取技术指标
         for instrument in self.instruments:
             atr = talib.ATR(np.array(self.dictOfDateDf[instrument]['High']),
                             np.array(self.dictOfDateDf[instrument]['Low']),
@@ -89,15 +89,20 @@ class TurtleTrade(strategy.BacktestingStrategy):
 
             self.tech[instrument] = {'atr': atr, 'long upper': long_upper, 'long lower': long_lower,
                                      'short upper': short_upper, 'short lower': short_lower}
+            # if len(atr) > self.max:
+            #     self.max = len(atr)
+
+        # self.i = 0  # 计数，用于确定计数指标的位置
 
     def onBars(self, bars):
-        # print(bars.getDateTime())
+        barTime = bars.getDateTime()
         self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
         order = []
         allAtr = {}
         postion = self.getBroker().getPositions()
+        readyInstrument = bars.getInstruments()
         for instrument in self.instruments:
-            t1 = time.time()
+            # t1 = time.time()
             # atr = talib.ATR(np.array(self.feed[instrument].getHighDataSeries()),
             #                 np.array(self.feed[instrument].getLowDataSeries()),
             #                 np.array(self.feed[instrument].getCloseDataSeries()), self.atrPeriod)[-1]  # 返回的ndarray
@@ -110,16 +115,31 @@ class TurtleTrade(strategy.BacktestingStrategy):
             # short_upper = talib.MAX(np.array(self.feed[instrument].getHighDataSeries()), self.short)
             # short_lower = talib.MIN(np.array(self.feed[instrument].getLowDataSeries()), self.short)
 
-            atr = self.tech[instrument]['atr'][self.i] #* 50#测试
+            if instrument not in readyInstrument:  # 如果此时没有这个品种的bar 说明还没开始或者别的品种的夜盘和它时间冲突
+                temp = self.dictOfDateDf[instrument][self.dictOfDateDf[instrument]['Date Time'] < barTime]
+                if temp.index.empty:  # 如果index是空值，则说明此时这个品种还没有开始有数据
+                    i = 0
+                else:
+                    i = temp.index[-1]  # 有数据，就说明是中间有夜盘时间不对齐的问题，用前一天的atr来代替
+
+                atr = self.tech[instrument]['atr'][i]
+                allAtr[instrument] = atr
+                # 对于这种取后一天的atr来假装，避免后面取atr 之前开仓所以有持仓，但此时没有atr的报错
+                continue
+            i = self.dictOfDateDf[instrument][self.dictOfDateDf[instrument]['Date Time'] == barTime].index[0]
+            atr = self.tech[instrument]['atr'][i]  # * 50#测试
             allAtr[instrument] = atr
+
             if np.isnan(atr):  # 为nan说明数据还不够，不做计算。
                 continue
+
+            #  找到这个时间在df中的位置
             quantity = self.getQuantity(instrument, atr)
-            long_upper = self.tech[instrument]['long upper'][:self.i+1]
-            long_lower = self.tech[instrument]['long lower'][:self.i+1]
-            short_lower = self.tech[instrument]['short lower'][:self.i+1]
-            short_upper = self.tech[instrument]['short upper'][:self.i+1]
-            t2 = time.time()
+            long_upper = self.tech[instrument]['long upper'][i-1:i + 1]  # 取出到此时的最后两个
+            long_lower = self.tech[instrument]['long lower'][i-1:i + 1]
+            short_lower = self.tech[instrument]['short lower'][i-1:i + 1]
+            short_upper = self.tech[instrument]['short upper'][i-1:i + 1]
+            # t2 = time.time()
             # print(t2 - t1)
             # 开仓。
             if long_upper[-1] > long_upper[-2] and postion.get(instrument, 0) == 0:  # 当期上界变高表示创新高，新低同理
@@ -127,6 +147,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                 self.openPriceAndATR[instrument] = [bars.getBar(instrument).getClose(), atr]  # 默认以收盘价开仓
                 print('open long')
                 print(bars.getDateTime())
+                print(instrument)
                 order.append(ret)
 
             elif long_lower[-1] < long_lower[-2] and postion.get(instrument, 0) == 0:
@@ -134,6 +155,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                 self.openPriceAndATR[instrument] = [bars.getBar(instrument).getClose(), atr]  # 默认以收盘价开仓
                 print('open short')
                 print(bars.getDateTime())
+                print(instrument)
                 order.append(ret)
             # 平仓
             elif short_upper[-1] > short_upper[-2] and postion.get(instrument, 0) < 0:  # 平空
@@ -141,13 +163,18 @@ class TurtleTrade(strategy.BacktestingStrategy):
                                                          abs(postion[instrument]))
                 print('close short')
                 print(bars.getDateTime())
+                print(instrument)
                 order.append(ret)
-                self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
+                try:
+                    self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
+                except:
+                    print()
 
             elif short_lower[-1] < short_lower[-2] and postion.get(instrument, 0) > 0:  # 平多
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, abs(postion[instrument]))
                 print('close long')
                 print(bars.getDateTime())
+                print(instrument)
                 order.append(ret)
                 self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
 
@@ -161,6 +188,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                         self.openPriceAndATR[instrument][0] = bars.getBar(instrument).getClose()
                         print('add long')
                         print(bars.getDateTime())
+                        print(instrument)
                         order.append(ret)
 
                     elif self.openPriceAndATR[instrument][0] - 0.5 * atr > bars.getBar(instrument).getClose():
@@ -170,6 +198,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                         self.openPriceAndATR.pop(instrument)
                         print('stop long')
                         print(bars.getDateTime())
+                        print(instrument)
                         order.append(ret)
 
                 elif postion.get(instrument, 0) < 0:  # 持有空仓
@@ -180,6 +209,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                         self.openPriceAndATR[instrument][0] = bars.getBar(instrument).getClose()
                         print('add short')
                         print(bars.getDateTime())
+                        print(instrument)
                         order.append(ret)
 
                     elif self.openPriceAndATR[instrument][0] + 0.5 * atr < bars.getBar(instrument).getClose():
@@ -189,11 +219,12 @@ class TurtleTrade(strategy.BacktestingStrategy):
                         self.openPriceAndATR.pop(instrument)
                         print('stop short')
                         print(bars.getDateTime())
+                        print(instrument)
                         order.append(ret)
-            t3 = time.time()
+            # t3 = time.time()
             # print(t3 - t2)
 
-        t3 = time.time()
+        # t3 = time.time()
         allPos = 0
         for instrument in postion:
             allPos += round(postion[instrument] / self.getQuantity(instrument, allAtr[instrument]))
@@ -213,7 +244,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
                     exist = round(postion.get(ins, 0) / self.getQuantity(ins, allAtr[ins]))
                     if exist <= 3:  # 如果单个品种小于3个单位的持仓，就可以开
                         self.getBroker().submitOrder(item)
-        self.i += 1  # 自增以移向下一个计数指标的值
+        # self.i += 1  # 自增以移向下一个计数指标的值
         t4 = time.time()
         # print(t4 - t3)
 
@@ -230,7 +261,8 @@ class TurtleTrade(strategy.BacktestingStrategy):
         KQmultiplier = \
             self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
 
-        res = int(quantity / atr / 100 / KQmultiplier )  # 向下取整
+        # res = int(quantity / atr / 100 / KQmultiplier)  # 向下取整
+        res = int(quantity / atr / 100)  # 由于目前回测系统没有考虑合约乘数，不需要除以合约乘数
 
         if res:
             return res

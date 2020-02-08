@@ -233,8 +233,8 @@ class DATA:
             temp = os.system('ping 106.52.184.131')
 
         if temp == 0:
-            os.system('rm ./future_data.db.bak')  # 备份
-            os.system('cp ./future_data.db ./future_data.db.bak')
+            os.system('del future_data.db.bak')  # 备份
+            os.system('copy future_data.db future_data.db.bak')
             conn = sqlite3.connect('./future_data.db')
             c = conn.cursor()
             general_tick_info = pd.read_csv('../general_ticker_info.csv')
@@ -281,6 +281,13 @@ class DATA:
         '''
         conn = sqlite3.connect('./future_data.db')
         Data = {}
+        res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=2000000)
+
+        if day:
+            res.setDateTimeFormat('%Y-%m-%d')
+        else:
+            res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
+
         for category in self.context.categorys:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
@@ -288,11 +295,7 @@ class DATA:
             if day:
                 file = self._resample(file, 'D')
             file.to_csv('temp.csv', index=False)
-            res = csvfeed.GenericBarFeed(Frequency.MINUTE, maxLen=2000000)
-            if day:
-                res.setDateTimeFormat('%Y-%m-%d')
-            else:
-                res.setDateTimeFormat('%Y-%m-%d %H:%M:%S')
+
             res.addBarsFromCSV(category, 'temp.csv')
             Data[category] = file
 
