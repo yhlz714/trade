@@ -96,7 +96,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
 
     def onBars(self, bars):
         barTime = bars.getDateTime()
-        self.equity = self.getBroker().getEquity()  # TODO 此处计算的权益是股票的，要改成期货的，否则cash会过少，导致无法开仓。
+        self.equity = self.getBroker().getEquity()
         order = []
         allAtr = {}
         postion = self.getBroker().getPositions()
@@ -170,13 +170,17 @@ class TurtleTrade(strategy.BacktestingStrategy):
                 except:
                     print()
 
+
             elif short_lower[-1] < short_lower[-2] and postion.get(instrument, 0) > 0:  # 平多
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, instrument, abs(postion[instrument]))
                 print('close long')
                 print(bars.getDateTime())
                 print(instrument)
                 order.append(ret)
-                self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
+                try:
+                    self.openPriceAndATR.pop(instrument)  # 去掉指定的持仓
+                except:
+                    print()
 
             # 加仓 或止损
             elif instrument in self.openPriceAndATR:  # 表示已有持仓
@@ -235,6 +239,8 @@ class TurtleTrade(strategy.BacktestingStrategy):
             open_mark = True
 
         for item in order:
+            item.setGoodTillCanceled(True)
+            item.setAllOrNone(True)
             action = item.getAction()
             if action == broker.Order.Action.SELL or action == broker.Order.Action.BUY_TO_COVER:  # 平仓的都可以
                 self.getBroker().submitOrder(item)
@@ -244,6 +250,9 @@ class TurtleTrade(strategy.BacktestingStrategy):
                     exist = round(postion.get(ins, 0) / self.getQuantity(ins, allAtr[ins]))
                     if exist <= 3:  # 如果单个品种小于3个单位的持仓，就可以开
                         self.getBroker().submitOrder(item)
+                        allPos += 1
+                    if allPos >= 10:
+                        open_mark = False
         # self.i += 1  # 自增以移向下一个计数指标的值
         t4 = time.time()
         # print(t4 - t3)
@@ -255,6 +264,7 @@ class TurtleTrade(strategy.BacktestingStrategy):
         """
 
         quantity = self.equity
+        # quantity = 1000000 测试
 
         KQFileName = self.context.categoryToFile[instrument]
 
@@ -269,3 +279,4 @@ class TurtleTrade(strategy.BacktestingStrategy):
         else:
             return 1  # 至少开1手
         # 账户的1%的权益，除去atr值，再除去合约乘数，即得张数。表示一个atr的标准波动让账户的权益变动1%
+

@@ -62,6 +62,9 @@ def Backtest():
     print((time_compare.resample('A').last() + 1) / (time_compare.resample('A').first() + 1))  # 按年的情况
     print("Final portfolio value: $%.2f" % context.myStrategy.getResult())
     print("Cumulative returns: %.2f %%" % (retAnalyzer.getCumulativeReturns()[-1] * 100))
+    print("annual return is %s" % pow((retAnalyzer.getCumulativeReturns()[-1] + 1),
+                                      1 / (len(retAnalyzer.getCumulativeReturns()) / 250)))
+    # 表示按照序列有多长，除掉250天表示有多少年，然后进行开方。
 
     # 画图
 
@@ -115,8 +118,17 @@ class Context:
 
 if __name__ == '__main__':
     context = Context()
-    context.categorys = ['rb', 'i', 'IF']  # 给定所有要回测的品种
-    context.categoryToFile = {'rb': 'KQi@SHFErb', 'i': 'KQi@DCEi', 'IF': 'KQi@CFFEXIF'}  # 品种和文件名转换dict
+    context.categorys = ['rb', 'i',  'cu', 'jm', 'j', 'm', 'SR', 'ru', 'TA', 'IF']  # 给定所有要回测的品种
+    context.categoryToFile = {'rb': 'KQi@SHFErb',
+                              'i': 'KQi@DCEi',
+                              'cu': 'KQi@SHFEcu',
+                              'm': 'KQi@DCEm',
+                              'SR': 'KQi@CZCESR',
+                              'ru': 'KQi@SHFEru',
+                              'TA': 'KQi@CZCETA',
+                              'jm': 'KQi@DCEjm',
+                              'j': 'KQi@DCEj',
+                              'IF': 'KQi@CFFEXIF'}  # 品种和文件名转换dict
     context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())

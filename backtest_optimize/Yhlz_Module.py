@@ -291,7 +291,7 @@ class DATA:
         for category in self.context.categorys:
             file = pd.read_sql('SELECT * FROM [' + self.context.categoryToFile[category] + '] ', conn,
                                parse_dates=['Date Time'])
-            # file = file.loc[file['Date Time'] > '2019', :].reset_index(drop=True)  # 测试
+            # file = file.loc[file['Date Time'] < '2016-5', :].reset_index(drop=True)  # 测试
             if day:
                 file = self._resample(file, 'D')
             file.to_csv('temp.csv', index=False)
