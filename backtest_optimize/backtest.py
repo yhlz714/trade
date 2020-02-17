@@ -60,6 +60,7 @@ def Backtest():
     time_compare.set_index('Time', drop=True, inplace=True)
     # print((time_compare.resample('M').last()+1) / (time_compare.resample('M').first()+1))  #按月的情况
     print((time_compare.resample('A').last() + 1) / (time_compare.resample('A').first() + 1))  # 按年的情况
+    print((time_compare.resample('A').last()) - (time_compare.resample('A').first()))  # 按年的情况, 净值绝对波动。
     print("Final portfolio value: $%.2f" % context.myStrategy.getResult())
     print("Cumulative returns: %.2f %%" % (retAnalyzer.getCumulativeReturns()[-1] * 100))
     print("annual return is %s" % pow((retAnalyzer.getCumulativeReturns()[-1] + 1),
@@ -81,6 +82,7 @@ def Backtest():
 
     print("Sharpe ratio: %.2f" % (sharpeRatioAnalyzer.getSharpeRatio(0.05)))
     print("Max. drawdown: %.2f %%" % (drawDownAnalyzer.getMaxDrawDown() * 100))
+    print("Value of Max. drawdown: %.2f " % -(drawDownAnalyzer.maxDrawDownValue))
     print("Longest drawdown duration: %s" % (drawDownAnalyzer.getLongestDrawDownDuration()))
     tradeAnalyzer.all_trade.to_csv(str(time.time()) + '.csv')
 
@@ -118,7 +120,8 @@ class Context:
 
 if __name__ == '__main__':
     context = Context()
-    context.categorys = ['rb', 'i',  'cu', 'jm', 'j', 'm', 'SR', 'ru', 'TA', 'IF']  # 给定所有要回测的品种
+    context.categorys = ['rb', 'i',  'cu', 'j', 'm', 'SR', 'ru', 'TA', 'IF', 'IC',
+                         'au', 'ag', 'p', 'CF', 'ni', 'y', 'T', 'pp']  # 给定所有要回测的品种
     context.categoryToFile = {'rb': 'KQi@SHFErb',
                               'i': 'KQi@DCEi',
                               'cu': 'KQi@SHFEcu',
@@ -126,9 +129,19 @@ if __name__ == '__main__':
                               'SR': 'KQi@CZCESR',
                               'ru': 'KQi@SHFEru',
                               'TA': 'KQi@CZCETA',
-                              'jm': 'KQi@DCEjm',
+                              'p': 'KQi@DCEp',
                               'j': 'KQi@DCEj',
-                              'IF': 'KQi@CFFEXIF'}  # 品种和文件名转换dict
+                              'IF': 'KQi@CFFEXIF',
+                              'IC': 'KQi@CFFEXIC',
+                              'au': 'KQi@SHFEau',
+                              'ag': 'KQi@SHFEag',
+                              'CF': 'KQi@CZCECF',
+                              'ni': 'KQi@SHFEni',
+                              'y': 'KQi@DCEy',
+                              'MA': 'KQi@CZCEMA',
+                              'T': 'KQi@CFFEXT',
+                              'pp': 'KQi@DCEpp'
+                              }  # 品种和文件名转换dict
     context.stg = TurtleTrade
     context.backtectDone = False
     print(time.ctime())
@@ -187,6 +200,6 @@ if __name__ == '__main__':
     backtest = threading.Thread(target=Backtest, name='backtest')
     backtest.start()
 
-    delay_deal()
-    context.root.mainloop()
+    # delay_deal()
+    # context.root.mainloop()
     backtest.join()
