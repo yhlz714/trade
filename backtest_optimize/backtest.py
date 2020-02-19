@@ -2,7 +2,6 @@
 YHLZ的回测系统基于pyalgotrade
 """
 
-
 import threading
 
 from pyalgotrade.stratanalyzer import sharpe

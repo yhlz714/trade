@@ -1,8 +1,16 @@
 all_data_used 是一个可以eval的字符串，生成一个记录了所有需要数据的品种列表例如 ['KQ.m@.rb']
+
 strategy_to_run 是一个以行的形式记录所有要运行的策略的文本，每一行一个策略，同逻辑，不同参数
 或品种需要写成不同的行，例如：
 cross_ma(KQ.m@rb,
 cross_ma(KQ.m@cu,
+
+currentAccount.csv 是实盘交易时realBroker用来记录每个虚拟账户对于不同的策略到底各自的持仓有多少，资金有多少。
+表头为：
+    equity, strategy, direction, oldOrNew, volume, contract, funds occupied, openPrice
+其中 equity表示虚拟账户权益， 对于不同策略不同，但是对同一策略不同持仓值是一样的， direction表示方向，0为空，1为多，oldOrNew表
+示今昨仓，0为昨，1为今， funds occupied表示这个持仓占用了多少资金，可以从tqsdk的 get position获得这个合约的持仓总占用，可以计算
+出来对于不同策略的部分持仓占用情况, openPrice 表示开仓的价格是多少，昨仓的价格就是昨收，因为期货是逐日结算的
 
 注：命名规范按照tqsdk的天勤终端中的命名规范来。但是左括号要加，右括号不加，右边逗号要加为了
 在eval时右边还可以再添加参数，目前策略的调用规则就是三个参数=>数据，持仓，和账户资金。
