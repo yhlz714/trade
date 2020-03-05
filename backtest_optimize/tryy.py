@@ -1,19 +1,37 @@
-from tkinter import *
+import tensorflow as tf
+import numpy as np
 
-root = Tk()
-label = Label(root)
-label.pack()
-def yyy(event):
-    print('success')
-    root.event_generate('<<try>>')
+#the function to create layer
+def add_layer(inputs,in_size,out_size,activation_function=None):
+    w = tf.Variable(tf.random_normal([in_size,out_size]))
+    b = tf.Variable(tf.zeros([1,out_size])+0.1)
+    f = tf.matmul(inputs,w) + b
+    if activation_function is None:
+        outputs = f
+    else:
+        outputs = activation_function(f)
+    return outputs
 
+#create test data(as real data)
+x_data = np.linspace(-1,1,300,dtype=np.float32)[:,np.newaxis]
+noise = np.random.normal(0,0.05,x_data.shape)
+y_data = np.square(x_data)-0.5+noise
 
-def bbb(event):
-    print('ok')
-root.bind('<<try>>',bbb)
-root.bind('<Button-1>',yyy)
-cv = Canvas(root)
-cv.create_line([0, 0, 100, 100], arrow='last')
-cv.pack()
+#give tensorflow input placeholder
+xs = tf.placeholder(tf.float32,[None,1])
+ys = tf.placeholder(tf.float32,[None,1])
+l1 = add_layer(x_data,1,10,activation_function=tf.nn.relu)
+prediction = add_layer(l1,10,1,activation_function=None)
 
-root.mainloop()
+loss = tf.reduce_mean(tf.reduce_sum(tf.square(y_data-prediction),reduction_indices=[1]))
+
+train = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
+
+init = tf.global_variables_initializer()
+sess = tf.Session()
+sess.run(init)
+
+for i in range(1000):
+    sess.run(train,feed_dict={xs:x_data,ys:y_data})
+    if(i % 50 == 0):
+        print(sess.run(loss,feed_dict={xs:x_data,ys:y_data}))

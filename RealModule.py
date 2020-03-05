@@ -1,3 +1,4 @@
+# coding=gbk
 """实盘运行时需要的模块"""
 
 from pyalgotrade import broker
@@ -19,6 +20,7 @@ class RealBroker(broker.Broker):
         f = open('strategytorun.txt')
         temp = f.readlines()
         f.close()
+        self.orderQueue = []
         self.strategy = []
         for item in temp:
             self.strategy.append(item[0])
@@ -30,24 +32,26 @@ class RealBroker(broker.Broker):
     def getInstrumentTraits(self, instrument):
         pass
 
-    def getCash(self, includeShort=True, strategyNmae=None):
+    def getCash(self, includeShort=True, strategyName=None):
         """
         Returns the available cash.
 
         :param includeShort: Include cash from short positions.
         :type includeShort: boolean.
         """
-        # TODO
-        pass
+        return self.strategyAccount[strategyName].getCash()
 
-    def getShares(self, instrument, strategyNmae=None):
+    def getShares(self, instrument, strategyName=None):
         """Returns the number of shares for an instrument."""
         pass
-        # TODO
 
-    def getPositions(self, strategyNmae=None):
+    def getPositions(self, strategyName=None):
         """Returns a dictionary that maps instruments to shares."""
-            # TODO
+        return self.strategyAccount[strategyName].getPosition()
+
+    def getEquity(self, strategyName=None):
+        """获取虚拟持仓的权益"""
+        return self.strategyAccount[strategyName].getPosition()
 
     def getActiveOrders(self, instrument=None):
         """Returns a sequence with the orders that are still active.
@@ -57,12 +61,16 @@ class RealBroker(broker.Broker):
         """
         pass
 
-    def submitOrder(self, order):
+    def submitOrder(self, order: 'virtualOrder'):
         """Submits an order.
         :param order: The order to submit.
         :type order: :class:`Order`.
         """
-        # TODO
+        self.orderQueue.append(order)
+
+    def creatOrder(self, direction, volume, contract, openOrClose):
+        """创建新的订单类"""
+        return virtualOrder(direction, volume, contract, open=openOrClose, oldOrNew='new')
 
     def createMarketOrder(self, action, instrument, quantity, strategyNmae=None, onClose=False):
         """Creates a Market order.
@@ -170,6 +178,9 @@ class RealBroker(broker.Broker):
     def peekDateTime(self):  # pyalgotrade 中有abstract methods 非写不可。
         pass
 
+    def update(self):
+        """每一个Onbar循环最后来处理这个时间点所有的需要更新的任务，比如更新虚拟账户的情况，订单报单等。"""
+
 
 class _virtualAccountHelp:
     """
@@ -193,7 +204,7 @@ class _virtualAccountHelp:
     def getEquity(self):
         return self.equity
 
-    def addOrder(self, order):
+    def addOrder(self, order: 'virtualOrder'):
         """
         记录最新的下单情况的order
         :param order:
@@ -227,9 +238,6 @@ class _virtualAccountHelp:
                 else:
                     self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
                     [order.direction, order.volume, order.contract]
-                
-
-                
 
 
 class virtualOrder:
