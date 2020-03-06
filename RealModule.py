@@ -10,20 +10,33 @@ class RealBroker(broker.Broker):
     继承pyalgotrade的基类，以实现和tqsdk交互
     """
 
-    def __init__(self):
+    def __init__(self, api: 'TqApi'):
         """
-
         :param strategy: 包含所有策略名称的list
         """
         super().__init__()
+        self.api = api
+        self.accountInfo = self.api.get_account()
+        self.posDict = self.api.get_position()
+        self.orderQueue = []
+        self.unfilledQueue = []
+        self.cancelOrderQueue = []
+        self.strategy = {}
+        self.cash = 0
+        self.balence = 0
+        self.allTick = {}
+
         realAccount = pd.read_csv('currentAccount.csv')
         f = open('strategytorun.txt')
         temp = f.readlines()
         f.close()
-        self.orderQueue = []
-        self.strategy = []
+
         for item in temp:
-            self.strategy.append(item[0])
+            self.strategy[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
+            for contract in item[1:]:
+                if contract not in self.allTick:
+                    self.allTick[contract] = self.api.get_quote(contract)
+
         self.strategyAccount = {}  # 存储一个虚拟的分策略的账户信息
         for item in self.strategy:
             self.strategyAccount[item] = _virtualAccountHelp(realAccount[realAccount.loc['strategy'] == item])
@@ -156,7 +169,7 @@ class RealBroker(broker.Broker):
         :param order: The order to cancel.
         :type order: :class:`Order`.
         """
-        pass
+        self.cancelOrderQueue.append(order)
 
     # ===============================================================
     def start(self):  # pyalgotrade 中有abstract methods 非写不可。
@@ -180,6 +193,25 @@ class RealBroker(broker.Broker):
 
     def update(self):
         """每一个Onbar循环最后来处理这个时间点所有的需要更新的任务，比如更新虚拟账户的情况，订单报单等。"""
+
+        self.cash = self.accountInfo.available
+        self.balence = self.accountInfo.balance
+        # TODO 完成 pass的内容。
+        if self.orderQueue:  # 如果队列中有订单。
+            pass
+        if self.unfilledQueue:  # 未成交处理。
+            pass
+        if self.cancelOrderQueue:  # 撤单处理。
+            pass
+
+        for item in self.strategy:  # 更新各个虚拟账户。
+            temp = {}
+            for contract in self.strategy[item]:
+                temp[contract] = self.allTick[contract]
+            self.strategyAccount[item].update(temp)
+
+
+
 
 
 class _virtualAccountHelp:
@@ -215,9 +247,10 @@ class _virtualAccountHelp:
     def update(self, allTick: dict):
         """
         根据最新的行情或者成交来更新账户
-        :param allTick: 包含所有品种的最新价
+        :param allTick: 包含所有品种的Tick的dict
         :return:
         """
+        # TODO 还没写完
         for order in self.orders[:]: # 对原list进行拷贝，避免因为删除导致index溢出
 
             if order.is_dead:
@@ -250,7 +283,7 @@ class virtualOrder:
         :param direction:
         :param volume:
         :param contract:
-        :param open:
+        :param open: 是否是开仓
         :param oldOrNew:  默认昨仓。
         """
         self.direction = direction
