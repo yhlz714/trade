@@ -77,7 +77,6 @@ class TurtleTrade(YhlzStreategy):
     """
     海龟交易策略
     """
-
     def __init__(self, feed, instruments, context, dictOfDataDf, atrPeriod=20, short=20, long=55):
         """
         初始化

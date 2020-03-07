@@ -32,15 +32,16 @@ class RealBroker(broker.Broker):
         f.close()
 
         for item in temp:
+            item = eval(item)
+            # !!! 策略不可重名， 如需同策略不同参数，可以继承一个，然后换个名字。
             self.strategy[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
             for contract in item[1:]:
-                if contract not in self.allTick:
-                    self.allTick[contract] = self.api.get_quote(contract)
+                if contract[0] not in self.allTick:
+                    self.allTick[contract[0]] = self.api.get_quote(contract[0])
 
         self.strategyAccount = {}  # 存储一个虚拟的分策略的账户信息
         for item in self.strategy:
             self.strategyAccount[item] = _virtualAccountHelp(realAccount[realAccount.loc['strategy'] == item])
-
 
     def getInstrumentTraits(self, instrument):
         pass
@@ -209,9 +210,6 @@ class RealBroker(broker.Broker):
             for contract in self.strategy[item]:
                 temp[contract] = self.allTick[contract]
             self.strategyAccount[item].update(temp)
-
-
-
 
 
 class _virtualAccountHelp:

@@ -1,1 +1,1 @@
-['cross_ma','KQ.i@SHFE.rb']
+['cross_ma', ['KQ.i@SHFE.rb', '1m', 700]]

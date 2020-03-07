@@ -1,9 +1,10 @@
 all_data_used 是一个可以eval的字符串，生成一个记录了所有需要数据的品种列表例如 ['KQ.m@.rb']
 
 strategy_to_run 是一个以行的形式记录所有要运行的策略的文本，每一行一个策略，同逻辑，不同参数
-或品种需要写成不同的行，例如：
-cross_ma(KQ.m@rb,
-cross_ma(KQ.m@cu,
+或品种需要写成不同的行，每行一个list，前面为字符串策略名，后面为list的合约与时间周期,与需要的长度，有'1m'->一分钟
+'1d'->一天等, 每一个内部list是所需要的一个数据源， 由这三个参数确定的一个内部list在同一行不应有重复 例如：
+['cross_ma',['KQ.m@SHFE.rb', '1m', 700]]
+['cross_ma',['KQ.m@SHFE.cu', '1d', 21], ['KQ.m@SHFE.rb', '1m', 100]]
 
 currentAccount.csv 是实盘交易时realBroker用来记录每个虚拟账户对于不同的策略到底各自的持仓有多少，资金有多少。
 表头为：
