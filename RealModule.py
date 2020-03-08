@@ -2,8 +2,11 @@
 """实盘运行时需要的模块"""
 
 from pyalgotrade import broker
+from pyalgotrade.bar import Bars
+from pyalgotrade.barfeed import csvfeed
 from tqsdk import TqApi
 import pandas as pd
+
 
 class RealBroker(broker.Broker):
     """
@@ -197,7 +200,7 @@ class RealBroker(broker.Broker):
 
         self.cash = self.accountInfo.available
         self.balence = self.accountInfo.balance
-        # TODO 完成 pass的内容。
+        # TODO 完成 pass的内容。 需要考虑怎么将真实的订单和虚拟的订单进行映射的问题。
         if self.orderQueue:  # 如果队列中有订单。
             pass
         if self.unfilledQueue:  # 未成交处理。
@@ -216,6 +219,7 @@ class _virtualAccountHelp:
     """
     帮助计算不同策略的虚拟持仓
     """
+
     def __init__(self, account):
         """
         :param account表示从本地文件读取的时候有多少各种持仓的df
@@ -248,14 +252,15 @@ class _virtualAccountHelp:
         :param allTick: 包含所有品种的Tick的dict
         :return:
         """
-        # TODO 还没写完
-        for order in self.orders[:]: # 对原list进行拷贝，避免因为删除导致index溢出
+        # TODO 还没写完， 需要update cash equity
+        # 处理订单的更新。更新position
+        for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
 
             if order.is_dead:
                 self.orders.remove(order)
-                tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x:x)
-                tempStr = str(order.contract) + str(order.direction) +str(order.oldOrNew)
-                if tempStr in tempTrade: # 说明有这个持仓
+                tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x: x)
+                tempStr = str(order.contract) + str(order.direction) + str(order.oldOrNew)
+                if tempStr in tempTrade:  # 说明有这个持仓
                     if order.open:
                         tempTrade['volume'] += order.volume  # 将这个数量加上即可
                     else:  # 平仓
@@ -265,16 +270,17 @@ class _virtualAccountHelp:
                             tempTrade.drop(tempStr, inplace=True)
                         else:
                             raise Exception('平仓数量超过已有持仓，请检查！')
-                    self.account = tempTrade.reset_index() 
+                    self.account = tempTrade.reset_index()
                 else:
                     self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
-                    [order.direction, order.volume, order.contract]
+                        [order.direction, order.volume, order.contract]
 
 
 class virtualOrder:
     """
     模拟的订单类， 因为虚拟账户有时候是几个虚拟单发成同一个实盘单，所以要重写。
     """
+
     def __init__(self, direction, volume, contract, open, oldOrNew='old'):
         """
 
@@ -285,7 +291,7 @@ class virtualOrder:
         :param oldOrNew:  默认昨仓。
         """
         self.direction = direction
-        self.volume =volume
+        self.volume = volume
         self.contract = contract
         self.open = open
         self.oldOrNew = oldOrNew
@@ -300,8 +306,76 @@ class virtualOrder:
 
     @property
     def is_dead(self):
-        return self.realOrder.is_dead # 返回tqsdk订单是否完结。
+        return self.realOrder.is_dead  # 返回tqsdk订单是否完结。
 
     @property
     def instrument_id(self):
         return self.realOrder.instrument_id
+
+
+class RealFeed:
+    """模拟pyalgotrade 的feed"""
+
+    def __init__(self):
+        self.allDataSource = {}
+
+    def __getitem__(self, item):
+        return self.allDataSource[item]
+
+    def addDataSource(self, contract, source):
+        self.allDataSource[contract] = RealSeries(source)
+
+
+class RealSeries:
+    """模拟pyalgotrade 的dataSeries"""
+
+    def __init__(self, source: 'pd.DataFrame'):
+        self.data = source
+
+    def getPriceDataSeries(self):
+        return self.data['close']
+
+    def getLowDataSeries(self):
+        return self.data['low']
+
+    def getHighDataSeries(self):
+        return self.data['high']
+
+    def getCloseDataSeries(self):
+        return self.data['close']
+
+
+class RealBars:
+    """模拟onBars的Bars"""
+
+    def __init__(self):
+        self.__data = {}
+
+    def getInstruments(self):
+        return self.__data.keys
+
+    def getDateTime(self):
+        return self.getBar(list(self.getInstruments())[0]).getDateTime()
+
+    def getBar(self, instrument):
+        return self.__data[instrument]
+
+    def setValue(self, value: 'dict of pd.Series'):
+        for item in value:
+            self.__data[item] = RealBar()
+            self.__data[item].set(value[item])
+
+
+class RealBar:
+
+    def __init__(self):
+        self.__data = pd.Series()
+
+    def getClose(self):
+        return self.__data['close']
+
+    def getDataTime(self):
+        return self.__data['datetime']
+
+    def set(self, value: 'pd.Series'):
+        self.__data = value

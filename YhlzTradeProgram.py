@@ -15,7 +15,7 @@ import numpy as np
 from tqsdk import TqApi, TqAccount, TargetPosTask, TqSim
 
 import backtest_optimize.Strategy as stg
-from RealModule import RealBroker
+from RealModule import RealBroker, RealFeed, RealBars
 
 
 class Get_Input(threading.Thread):
@@ -38,12 +38,16 @@ logging.basicConfig(filename='log.txt', filemode='a', level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logging.info('This is yhlz\'s trading server,now started!\n')
 
+# 定义常量
+durationTransDict = {'1m': 60, '1d': 86400}
+
+
 try:
     # api=TqApi(TqAccount('快期模拟','284837','86888196'))
-    # api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
-    # logging.info('success sign in! with simnow')
-    api = TqApi(TqAccount('H华安期货', '100909186', 'Yhlz0000'))
-    logging.info('success sign in! with 100909186')
+    api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
+    logging.info('success sign in! with simnow')
+    # api = TqApi(TqAccount('H华安期货', '100909186', 'Yhlz0000'))
+    # logging.info('success sign in! with 100909186')
 except Exception:
     logging.info('problem with sign in!')
     exit(1)
@@ -53,31 +57,32 @@ temp = f.readlines()
 f.close()
 
 #  初始化数据
-durationTransDict = {'1m': 60, '1d': 86400}
+
 strategys = {}
-allKline = {}
+allKline = RealFeed()
 for item in temp:
     item = eval(item)
     strategys[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
     for dataNeeded in item[1]:
         if str(dataNeeded) not in allKline:
-            allKline[str(dataNeeded)] = \
-                api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[2]], dataNeeded[2])
+            allKline.addDataSource(str(dataNeeded),
+                                   api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[1]], dataNeeded[2]))
 
 # 初始化策略
 broker = RealBroker(api)
 allStg = []
 for strategy in strategys:
-    allStg.append(eval(strategy + '(?)'))  # TODO 看要怎么样给初始化的策略传参数
-
-contral = ''  # use for contral the whole program stop or not ,if it equal to 'q' then progam stoped
+    allStg.append(eval(strategy + '(allKline, allKilne.keys(), '', '')'))
+    # 给策略传递参数，后面两个必须参数先传空字符， 默认参数不传，因为策略不会重名，所以每个策略的默认参数就是运行参数。
 
 """----------------------------------------------开始实盘运行阶段-----------------------------------------------------"""
+contral = ''  # use for contral the whole program stop or not ,if it equal to 'q' then progam stoped
 # get_input=Get_Input()
 # get_input.setDaemon(True)
 # get_input.start()
 now_record = 61  # record minute time
 when = 0
+bars = RealBars()
 while True:
     api.wait_update(time.time() + 1)
     now = time.localtime()
@@ -91,9 +96,14 @@ while True:
     if run:
         time.sleep(0.5)
         run = 0
-        for strategy in allStg:
-            strategy.onBar()  # TODO 需要传入参数
 
+        # 准备这个周期的bars
+        tempDict = {}
+        for contract in allKline:
+            tempDict[contract] = allKline[contract].iloc[-1, :]   # 最新一个bar
+        bars.setValue(tempDict)
+        for strategy in allStg:
+            strategy.onBar(bars)
 
     if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':
         broker.stop()  # 处理持仓信息的，将各个虚拟持仓情况写入csv
