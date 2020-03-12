@@ -1,6 +1,8 @@
 # coding=gbk
 """实盘运行时需要的模块"""
 
+import time
+
 from pyalgotrade import broker
 from pyalgotrade.bar import Bars
 from pyalgotrade.barfeed import csvfeed
@@ -203,10 +205,25 @@ class RealBroker(broker.Broker):
         # TODO 完成 pass的内容。 需要考虑怎么将真实的订单和虚拟的订单进行映射的问题。
         if self.orderQueue:  # 如果队列中有订单。
             pass
-        if self.unfilledQueue:  # 未成交处理。
-            pass
+
+        if self.unfilledQueue:  # 未成交处理。先暂时按照等待10秒撤单处理。
+            while self.unfilledQueue:
+                temp = self.unfilledQueue.pop()
+                if not temp.is_dead:
+                    if time.time() - temp.time > 10:  # 大于10秒，且价格不是最优撤单。
+                        if temp.direction == 'BUY':
+                            if temp.limit_price != self.allTick[temp.instrument_id].bid_price1:
+                                self.cancelOrderQueue.append(temp)
+                        else:
+                            if temp.limit_price != self.allTick[temp.instrument_id].ask_price1:
+                                self.cancelOrderQueue.append(temp)
+
         if self.cancelOrderQueue:  # 撤单处理。
-            pass
+            while self.cancelOrderQueue:
+                temp = self.cancelOrderQueue.pop()
+                for i in temp.realOrder:
+                    if not i.is_dead:
+                        self.api.cancel_order(i.order_id)
 
         for item in self.strategy:  # 更新各个虚拟账户。
             temp = {}
@@ -290,11 +307,14 @@ class virtualOrder:
         :param open: 是否是开仓
         :param oldOrNew:  默认昨仓。
         """
-        self.direction = direction
-        self.volume = volume
-        self.contract = contract
+        self.virDirection = direction
+        self.virVolume = volume
+        self.virContract = contract
         self.open = open
         self.oldOrNew = oldOrNew
+        self.time = time.time()  # 记录创建时间
+
+        self.realOrder = []
 
     def attach(self, order: 'tqsdk order'):
         """
@@ -302,15 +322,31 @@ class virtualOrder:
         :param order: 和这个单对应的tqsdk账户的单，有可能多个虚拟单关联到同一个tqsdk的单上。
         :return:
         """
-        self.realOrder = order
+        self.realOrder.append(order)
 
     @property
     def is_dead(self):
-        return self.realOrder.is_dead  # 返回tqsdk订单是否完结。
+        dead = True
+        for item in self.realOrder:
+            if not item.is_dead:
+                dead = False
+        return dead
 
     @property
     def instrument_id(self):
-        return self.realOrder.instrument_id
+        return self.virContract
+
+    @property
+    def insert_date_time(self):
+        return self.time
+
+    @property
+    def limit_price(self):
+        return self.realOrder[0].limit_price  # 有可能有多个真实订单， 但是限价下单的价钱一定一样。
+
+    @property
+    def direction(self):
+        return self.virDirection
 
 
 class RealFeed:
