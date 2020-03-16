@@ -182,8 +182,8 @@ class RealBroker(broker.Broker):
         pass
 
     def stop(self):  # pyalgotrade 中有abstract methods 非写不可。
-        pass
-        # TODO 将各个虚拟账户的持仓重新整理然后写入csv
+        temp = pd.concat([self.strategyAccount[key] for key in self.strategyAccount.keys()])
+        temp.to_csv('currentAccount.csv')
 
     def join(self):  # pyalgotrade 中有abstract methods 非写不可。
         pass
@@ -325,7 +325,7 @@ class RealBroker(broker.Broker):
             temp = {}
             for contract in self.strategy[item]:
                 temp[contract] = self.allTick[contract]
-            self.strategyAccount[item].update(temp)
+            self.strategyAccount[item].update(temp, self.posDict)
 
 
 class _virtualAccountHelp:
