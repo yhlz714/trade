@@ -46,7 +46,7 @@ class RealBroker(broker.Broker):
 
         self.strategyAccount = {}  # 存储一个虚拟的分策略的账户信息
         for item in self.strategy:
-            self.strategyAccount[item] = _virtualAccountHelp(realAccount[realAccount.loc['strategy'] == item])
+            self.strategyAccount[item] = _virtualAccountHelp(realAccount[realAccount.loc[:, 'strategy'] == item])
 
     def getInstrumentTraits(self, instrument):
         pass
@@ -495,8 +495,14 @@ class RealFeed:
     def __getitem__(self, item):
         return self.allDataSource[item]
 
-    def addDataSource(self, contract, source):
-        self.allDataSource[contract] = RealSeries(source)
+    def __contains__(self, item):  # 当代码中对这个类的实例调用 in 的时候触发这个方法。
+        return True if item in self.allDataSource else False
+
+    def addDataSource(self, sourceName, source):
+        self.allDataSource[sourceName] = RealSeries(source)
+
+    def keys(self):
+        return self.allDataSource.keys()
 
 
 class RealSeries:

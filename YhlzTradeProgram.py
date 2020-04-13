@@ -1,5 +1,7 @@
+# coding: gbk
 # This is yhlz's trading program base on tqsdk.
 # Main running progrem.
+
 
 """
 Author: Yhlz 2020-03-06
@@ -60,20 +62,21 @@ f.close()
 
 strategys = {}
 allKline = RealFeed()
-for item in temp:
-    item = eval(item)
-    strategys[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
-    for dataNeeded in item[1]:
-        if str(dataNeeded) not in allKline:
-            allKline.addDataSource(str(dataNeeded),
-                                   api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[1]], dataNeeded[2]))
-
 # 初始化策略
 broker = RealBroker(api)
 allStg = []
-for strategy in strategys:
-    allStg.append(eval(strategy + '(allKline, allKilne.keys(), '', '')'))
+stg.YhlzStreategy.realTrade = True
+stg.YhlzStreategy.realBroker = broker
+
+for item in temp:
+    item = eval(item)
+    for dataNeeded in item[1:]:
+        if str(dataNeeded[0]) not in allKline:
+            allKline.addDataSource(str(dataNeeded),
+                                   api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[1]], dataNeeded[2]))
+    allStg.append(eval('stg.' + item[0] + '(allKline, item[1], \'\', \'\')'))
     # 给策略传递参数，后面两个必须参数先传空字符， 默认参数不传，因为策略不会重名，所以每个策略的默认参数就是运行参数。
+
 
 """----------------------------------------------开始实盘运行阶段-----------------------------------------------------"""
 contral = ''  # use for contral the whole program stop or not ,if it equal to 'q' then progam stoped

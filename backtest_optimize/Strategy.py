@@ -17,9 +17,15 @@ class YhlzStreategy(strategy.BacktestingStrategy):
     """
     重写策略类，给每个策略都加上可以检查是否移仓的方法
     """
+    realTrade = False
+    realBroker = ''
+
     def __init__(self, barFeed, cashOrBroker=1000000):
-        super().__init__(barFeed, cashOrBroker)
-        self.realTrade = False
+        if self.realTrade:
+            super().__init__(barFeed, self.realBroker)
+        else:
+            super().__init__(barFeed, cashOrBroker)
+
 
     def checkTransPosition(self):
         """
