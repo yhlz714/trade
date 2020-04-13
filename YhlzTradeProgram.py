@@ -2,7 +2,6 @@
 # This is yhlz's trading program base on tqsdk.
 # Main running progrem.
 
-
 """
 Author: Yhlz 2020-03-06
 """
