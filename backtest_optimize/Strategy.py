@@ -53,11 +53,11 @@ class SMACrossOver(YhlzStreategy):
         self.__position = None
         self.prices = feed[instrument].getPriceDataSeries()
         # 这个策略只有一个品种，所以pop出来必然是那个。pop后这个键值对就不存在，不能取两次
-        length = len(dictOfDataDf[list(dictOfDataDf.keys())[0]])  # 拿出第一个df的长度
         if self.realTrade:
             self.sma = talib.SMA(self.prices.values, 108)
             self.sma1 = talib.SMA(self.prices.values, 694)
         else:
+            length = len(dictOfDataDf[list(dictOfDataDf.keys())[0]])  # 拿出第一个df的长度
             self.sma = ma.SMA(self.prices, 108, maxLen=length)
             self.sma1 = ma.SMA(self.prices, 694, maxLen=length)
             self.tech = {instrument: {'sma short': self.sma, 'sma long': self.sma1}}

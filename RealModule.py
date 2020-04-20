@@ -3,7 +3,7 @@
 
 import time
 
-from pyalgotrade import broker
+from pyalgotrade.broker import backtesting
 from pyalgotrade.bar import Bars
 from pyalgotrade.barfeed import csvfeed
 from pyalgotrade.bar import Frequency
@@ -11,7 +11,7 @@ from tqsdk import TqApi
 import pandas as pd
 
 
-class RealBroker(broker.Broker):
+class RealBroker(backtesting.Broker):
     """
     继承pyalgotrade的基类，以实现和tqsdk交互
     """
@@ -20,7 +20,8 @@ class RealBroker(broker.Broker):
         """
         :param strategy: 包含所有策略名称的list
         """
-        super().__init__()
+        feed = RealFeed()
+        super().__init__(10000, feed)
         self.api = api
         self.accountInfo = self.api.get_account()
         self.posDict = self.api.get_position()

@@ -73,7 +73,7 @@ for item in temp:
         if str(dataNeeded[0]) not in allKline:
             allKline.addDataSource(str(dataNeeded),
                                    api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[1]], dataNeeded[2]))
-    allStg.append(eval('stg.' + item[0] + '(allKline, item[1], \'\', \'\')'))
+    allStg.append(eval('stg.' + item[0] + '(allKline, str(item[1]), \'\', {})'))
     # 给策略传递参数，后面两个必须参数先传空字符， 默认参数不传，因为策略不会重名，所以每个策略的默认参数就是运行参数。
 
 
