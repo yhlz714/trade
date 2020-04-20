@@ -6,6 +6,7 @@ import time
 from pyalgotrade import broker
 from pyalgotrade.bar import Bars
 from pyalgotrade.barfeed import csvfeed
+from pyalgotrade.bar import Frequency
 from tqsdk import TqApi
 import pandas as pd
 
@@ -486,10 +487,11 @@ class virtualOrder:
         # TODO 以后再想怎么计算手续费。
         return 0
 
-class RealFeed:
+class RealFeed(csvfeed.GenericBarFeed):
     """模拟pyalgotrade 的feed"""
 
     def __init__(self):
+        super().__init__(Frequency.MINUTE)
         self.allDataSource = {}
 
     def __getitem__(self, item):
