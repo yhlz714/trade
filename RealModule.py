@@ -2,6 +2,7 @@
 """实盘运行时需要的模块"""
 
 import time
+import logging
 
 from pyalgotrade.broker import backtesting
 from pyalgotrade.bar import Bars
@@ -10,6 +11,7 @@ from pyalgotrade.bar import Frequency
 from tqsdk import TqApi
 import pandas as pd
 
+logger = logging.getLogger('Yhlz')
 
 class RealBroker(backtesting.Broker):
     """
@@ -60,6 +62,7 @@ class RealBroker(backtesting.Broker):
         :param includeShort: Include cash from short positions.
         :type includeShort: boolean.
         """
+        logger.debug('现金是' + str(self.strategyAccount[strategyName].getCash()))
         return self.strategyAccount[strategyName].getCash()
 
     def getShares(self, instrument, strategyName=None):
@@ -68,10 +71,12 @@ class RealBroker(backtesting.Broker):
 
     def getPositions(self, strategyName=None):
         """Returns a dictionary that maps instruments to shares."""
+        logger.debug('持仓是' + str(self.strategyAccount[strategyName].getPosition()))
         return self.strategyAccount[strategyName].getPosition()
 
     def getEquity(self, strategyName=None):
         """获取虚拟持仓的权益"""
+        logger.debug('权益是： ' + str(self.strategyAccount[strategyName].getPosition()))
         return self.strategyAccount[strategyName].getPosition()
 
     def getActiveOrders(self, instrument=None):
@@ -91,6 +96,7 @@ class RealBroker(backtesting.Broker):
 
     def creatOrder(self, direction, volume, contract, openOrClose):
         """创建新的订单类"""
+        logger.debug('创建订单->' + str(direction) + str(volume) + str(contract) + str(openOrClose))
         return virtualOrder(direction, volume, contract, open=openOrClose, oldOrNew='new')
 
     def createMarketOrder(self, action, instrument, quantity, strategyNmae=None, onClose=False):
@@ -178,13 +184,14 @@ class RealBroker(backtesting.Broker):
         :type order: :class:`Order`.
         """
         self.cancelOrderQueue.append(order)
+        logger.debug(str(order.id))
 
     # ===============================================================
     def start(self):  # pyalgotrade 中有abstract methods 非写不可。
         pass
 
     def stop(self):  # pyalgotrade 中有abstract methods 非写不可。
-        temp = pd.concat([self.strategyAccount[key] for key in self.strategyAccount.keys()])
+        temp = pd.concat([self.strategyAccount[key].account for key in self.strategyAccount.keys()])
         temp.to_csv('currentAccount.csv')
 
     def join(self):  # pyalgotrade 中有abstract methods 非写不可。

@@ -4,6 +4,8 @@ Version = 1.0
 """
 
 import time
+import logging
+
 from pyalgotrade import strategy
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
@@ -12,6 +14,7 @@ import talib
 import pandas as pd
 import numpy as np
 
+logger = logging.getLogger('Yhlz')
 
 class YhlzStreategy(strategy.BacktestingStrategy):
     """
@@ -54,9 +57,11 @@ class SMACrossOver(YhlzStreategy):
         self.prices = feed[instrument].getPriceDataSeries()
         # 这个策略只有一个品种，所以pop出来必然是那个。pop后这个键值对就不存在，不能取两次
         if self.realTrade:
-            self.sma = talib.SMA(self.prices.values, 108)
-            self.sma1 = talib.SMA(self.prices.values, 694)
+            logger.debug('实盘')
+            self.sma = talib.SMA(self.prices.values, 10)
+            self.sma1 = talib.SMA(self.prices.values, 20)
         else:
+            logger.debug('回测')
             length = len(dictOfDataDf[list(dictOfDataDf.keys())[0]])  # 拿出第一个df的长度
             self.sma = ma.SMA(self.prices, 108, maxLen=length)
             self.sma1 = ma.SMA(self.prices, 694, maxLen=length)
@@ -69,33 +74,43 @@ class SMACrossOver(YhlzStreategy):
 
         quantity = 100
         if self.realTrade:
+            self.sma = talib.SMA(self.prices.values, 10)
+            self.sma1 = talib.SMA(self.prices.values, 20)
+            logger.debug(str(self.sma))
+            logger.debug(str(self.sma1))
             if self.sma[-1] > self.sma1[-1] and self.sma[-2] < self.sma1[-2]:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
+                    logger.debug('平仓')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                print(bars.getDateTime())
+                logger.debug('买' + str(bars.getDateTime()))
             elif self.sma[-1] < self.sma1[-1] and self.sma[-2] > self.sma1[-2]:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
+                    logger.debug('平仓')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
+                logger.debug('卖' + str(bars.getDateTime()))
         else:
             if cross.cross_above(self.sma, self.sma1) > 0:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
+                    logger.debug('平仓')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                print(bars.getDateTime())
+                logger.debug('买' + str(bars.getDateTime()))
             elif cross.cross_below(self.sma, self.sma1) > 0:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
+                    logger.debug('平仓')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
+                logger.debug('卖' + str(bars.getDateTime()))
 
 
 class TurtleTrade(YhlzStreategy):

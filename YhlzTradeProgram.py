@@ -26,18 +26,27 @@ class Get_Input(threading.Thread):
         global contral
         while True:
             contral = input('press q to quit!')
-            logging.info(contral)
-            logging.info(time.ctime())
+            logger.info(contral)
+            logger.info(time.ctime())
             now = time.localtime()
             if now.tm_hour == 15 or now.tm_hour == 3 or contral == 'q':
-                logging.info('Ready to quit')
+                logger.info('Ready to quit')
                 return
 
 
 """----------------------------------------------初始化阶段----------------------------------------------------------"""
-logging.basicConfig(filename='log.txt', filemode='a', level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logging.info('This is yhlz\'s trading server,now started!\n')
+logger = logging.getLogger('Yhlz')
+logger.setLevel(logging.DEBUG)
+fm =logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh = logging.FileHandler('log.txt', mode='a')
+fh.setFormatter(fm)
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
+logger.propagate = False
+
+# logging.basicConfig(filename='log.txt', filemode='a', level=logging.DEBUG,
+#                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger.info('This is yhlz\'s trading server,now started!\n')
 
 # 定义常量
 durationTransDict = {'1m': 60, '1d': 86400}
@@ -46,11 +55,11 @@ durationTransDict = {'1m': 60, '1d': 86400}
 try:
     # api=TqApi(TqAccount('快期模拟','284837','86888196'))
     api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
-    logging.info('success sign in! with simnow')
+    logger.info('success sign in! with simnow')
     # api = TqApi(TqAccount('H华安期货', '100909186', 'Yhlz0000'))
-    # logging.info('success sign in! with 100909186')
+    # Yhlz.info('success sign in! with 100909186')
 except Exception:
-    logging.info('problem with sign in!')
+    logger.info('problem with sign in!')
     exit(1)
 
 f = open('strategytorun.txt')
@@ -85,6 +94,7 @@ contral = ''  # use for contral the whole program stop or not ,if it equal to 'q
 now_record = 61  # record minute time
 when = 0
 bars = RealBars()
+logger.info('开始实盘运行')
 while True:
     api.wait_update(time.time() + 1)
     now = time.localtime()
@@ -93,9 +103,11 @@ while True:
     run = 0
     for contract in allKline:  # 如果有变化了的就去运行。
         if api.is_changing(allKline[contract]):  # data is change
+            # TODO 检查为什么run一直不是1，
             run = 1
             break
     if run:
+        logger.debug('running!')
         time.sleep(0.5)
         run = 0
 
@@ -109,7 +121,7 @@ while True:
 
     if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':
         broker.stop()  # 处理持仓信息的，将各个虚拟持仓情况写入csv
-        logging.info('stop running!')
+        logger.info('stop running!')
         break
 
 api.close()
