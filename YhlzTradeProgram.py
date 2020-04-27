@@ -101,8 +101,8 @@ while True:
     if now.tm_min == 30 or now.tm_min == 0:
         time.sleep(2)  # avoid some exception like when updated and send order but exchange refused ,then wait 2s
     run = 0
-    for contract in allKline:  # 如果有变化了的就去运行。
-        if api.is_changing(allKline[contract]):  # data is change
+    for contract in allKline.keys():  # 如果有变化了的就去运行。
+        if api.is_changing(allKline[contract].data):  # data is change
             # TODO 检查为什么run一直不是1，
             run = 1
             break
@@ -114,10 +114,10 @@ while True:
         # 准备这个周期的bars
         tempDict = {}
         for contract in allKline:
-            tempDict[contract] = allKline[contract].iloc[-1, :]   # 最新一个bar
+            tempDict[contract] = allKline[contract].data.iloc[-1, :]   # 最新一个bar
         bars.setValue(tempDict)
         for strategy in allStg:
-            strategy.onBar(bars)
+            strategy.onBars(bars)
 
     if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':
         broker.stop()  # 处理持仓信息的，将各个虚拟持仓情况写入csv

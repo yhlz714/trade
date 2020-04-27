@@ -184,7 +184,7 @@ class RealBroker(backtesting.Broker):
         :type order: :class:`Order`.
         """
         self.cancelOrderQueue.append(order)
-        logger.debug(str(order.id))
+        logger.debug('撤掉的订单id是： ' + str(order.id))
 
     # ===============================================================
     def start(self):  # pyalgotrade 中有abstract methods 非写不可。
@@ -407,13 +407,16 @@ class _virtualAccountHelp:
                         elif order.volume == tempTrade['volume']:
                             tempTrade.drop(tempStr, inplace=True)
                         else:
+                            logger.error('平仓数量超过已有持仓，请检查！')
                             raise Exception('平仓数量超过已有持仓，请检查！')
+
                     self.account = tempTrade.reset_index()
                 else:
                     self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
                         [order.direction, order.volume, order.contract]
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
+
 
 class virtualOrder:
     """
@@ -495,18 +498,35 @@ class virtualOrder:
         # TODO 以后再想怎么计算手续费。
         return 0
 
+
 class RealFeed(csvfeed.GenericBarFeed):
     """模拟pyalgotrade 的feed"""
 
     def __init__(self):
         super().__init__(Frequency.MINUTE)
         self.allDataSource = {}
+        self.i = 0
+        self.j = 0
 
     def __getitem__(self, item):
         return self.allDataSource[item]
 
     def __contains__(self, item):  # 当代码中对这个类的实例调用 in 的时候触发这个方法。
         return True if item in self.allDataSource else False
+
+    # iter 和 next方法实现了 for in 语句
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.i = self.j
+        if self.i < len(self.allDataSource):
+            self.j = self.i + 1
+            return list(self.allDataSource.keys())[self.i]
+
+        self.i = 0  # 没有return需要将i清零。
+        raise StopIteration()
+
 
     def addDataSource(self, sourceName, source):
         self.allDataSource[sourceName] = RealSeries(source)
@@ -541,7 +561,7 @@ class RealBars:
         self.__data = {}
 
     def getInstruments(self):
-        return self.__data.keys
+        return self.__data.keys()
 
     def getDateTime(self):
         return self.getBar(list(self.getInstruments())[0]).getDateTime()
@@ -563,7 +583,7 @@ class RealBar:
     def getClose(self):
         return self.__data['close']
 
-    def getDataTime(self):
+    def getDateTime(self):
         return self.__data['datetime']
 
     def set(self, value: 'pd.Series'):
