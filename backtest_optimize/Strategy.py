@@ -83,35 +83,35 @@ class SMACrossOver(YhlzStreategy):
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
-                    logger.debug('平仓')
+                    logger.debug('平仓1')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                logger.debug('买' + str(bars.getDateTime()))
+                logger.debug('买1' + str(bars.getDateTime()))
             elif self.sma[-1] < self.sma1[-1] and self.sma[-2] > self.sma1[-2]:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
-                    logger.debug('平仓')
+                    logger.debug('平仓2')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                logger.debug('卖' + str(bars.getDateTime()))
+                logger.debug('卖1' + str(bars.getDateTime()))
         else:
             if cross.cross_above(self.sma, self.sma1) > 0:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
-                    logger.debug('平仓')
+                    logger.debug('平仓3')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                logger.debug('买' + str(bars.getDateTime()))
+                logger.debug('买2' + str(bars.getDateTime()))
             elif cross.cross_below(self.sma, self.sma1) > 0:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL, self.__instrument, quantity)
                     self.getBroker().submitOrder(ret)
-                    logger.debug('平仓')
+                    logger.debug('平仓4')
                 ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT, self.__instrument, quantity)
                 self.getBroker().submitOrder(ret)
-                logger.debug('卖' + str(bars.getDateTime()))
+                logger.debug('卖2' + str(bars.getDateTime()))
 
 
 class TurtleTrade(YhlzStreategy):
