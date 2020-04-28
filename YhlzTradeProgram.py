@@ -102,8 +102,7 @@ while True:
         time.sleep(2)  # avoid some exception like when updated and send order but exchange refused ,then wait 2s
     run = 0
     for contract in allKline.keys():  # 如果有变化了的就去运行。
-        if api.is_changing(allKline[contract].data):  # data is change
-            # TODO 检查为什么run一直不是1，
+        if api.is_changing(allKline[contract].data.iloc[-1], 'datetime'):  # have a new bar
             run = 1
             break
     if run:
@@ -117,6 +116,7 @@ while True:
             tempDict[contract] = allKline[contract].data.iloc[-1, :]   # 最新一个bar
         bars.setValue(tempDict)
         for strategy in allStg:
+            broker.strategyNow = strategy
             strategy.onBars(bars)
 
     if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':

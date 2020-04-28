@@ -1,2 +1,2 @@
-balance,strategy,direction,oldOrNew,volume,contract,funds occupied,prePrice,fee
-1000000,SMACrossOver,
+,balance,strategy,direction,oldOrNew,volume,contract,funds occupied,prePrice,fee
+0,1000000,SMACrossOver,,,,,,,
