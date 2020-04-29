@@ -69,20 +69,20 @@ class RealBroker(backtesting.Broker):
     def getShares(self, instrument, strategyName=None):
         """Returns the number of shares for an instrument."""
         if strategyName==None:
-            strategyName = type(self.strategy).__name__  # 获取实例的类名
+            strategyName = type(self.strategyNow).__name__  # 获取实例的类名
         return self.getPositions(strategyName).loc[:, 'volume'].sum()  # 返回一个对多空仓加总了的数量。
 
     def getPositions(self, strategyName=None):
         """Returns a dictionary that maps instruments to shares."""
         if strategyName==None:
-            strategyName = type(self.strategy).__name__  # 获取实例的类名
+            strategyName = type(self.strategyNow).__name__  # 获取实例的类名
         logger.debug('持仓是' + str(self.strategyAccount[strategyName].getPosition()))
         return self.strategyAccount[strategyName].getPosition()
 
     def getEquity(self, strategyName=None):
         """获取虚拟持仓的权益"""
         if strategyName==None:
-            strategyName = type(self.strategy).__name__  # 获取实例的类名
+            strategyName = type(self.strategyNow).__name__  # 获取实例的类名
         logger.debug('权益是： ' + str(self.strategyAccount[strategyName].getPosition()))
         return self.strategyAccount[strategyName].getPosition()
 
@@ -104,7 +104,7 @@ class RealBroker(backtesting.Broker):
     def creatOrder(self, direction, volume, contract, openOrClose, strategyName=None):
         """创建新的订单类"""
         if strategyName==None:
-            strategyName = type(self.strategy).__name__  # 获取实例的类名
+            strategyName = type(self.strategyNow).__name__  # 获取实例的类名
         logger.debug('创建订单->' + str(direction) + str(volume) + str(contract) + str(openOrClose))
         return virtualOrder(direction, volume, contract, openOrClose, strategyName, oldOrNew='new')
 
@@ -229,21 +229,21 @@ class RealBroker(backtesting.Broker):
 
         self.cash = self.accountInfo.available
         self.balence = self.accountInfo.balance
-        logger.debug('cash is: ' + str(self.cash))
-        logger.debug('balance is: ' + str(self.balence))
+        logger.debug('real account cash is: ' + str(self.cash))
+        logger.debug('real account balance is: ' + str(self.balence))
         """--------------------------------------------下单----------------------------------------------"""
         if self.orderQueue:  # 如果队列中有订单。
             logger.debug('有要下的单分别是：')
             groupbyOrder = {}  # 用一个dict来装分类订单。
             for order in self.orderQueue:
                 logger.debug(str(order))
-                if order.virContract in groupbyOrder:  # 分类dict中已经有这个合约了
-                    if order.virDirection == 'Buy' :  # 分买卖两边分类。
-                        groupbyOrder[order.virContract]['long'].append(order)
-                    else:
-                        groupbyOrder[order.virContract]['short'].append(order)
-                else:  # 还没有这个合约
+                if not order.virContract in groupbyOrder:  # 还没有这个合约
                     groupbyOrder[order.virContract] = {'long': [], 'short': []}  # 初始化为dict Of list , 分为多空两边
+                if order.virDirection == 'Buy':  # 分买卖两边分类。
+                    groupbyOrder[order.virContract]['long'].append(order)
+                else:
+                    groupbyOrder[order.virContract]['short'].append(order)
+
             logger.debug('分类完成，dict是： ')
             logger.debug(str(groupbyOrder))
 
@@ -279,8 +279,12 @@ class RealBroker(backtesting.Broker):
             logger.debug(str(groupbyOrder))
 
             for item in groupbyOrder:  # 进行下单
-                pos = self.posDict[item]
-                availablePos = pos.pos_long - pos.pos_short
+                pos = self.posDict.get(item, None)
+                if pos:
+                    availablePos = pos.pos_long - pos.pos_short
+                else:
+                    availablePos = 0
+
                 if groupbyOrder[item]['long']:
                     for order in groupbyOrder[item]['long']:
                         if availablePos >= 0:  # 要买，持仓大于0 那么不论虚拟单开平，都要开多
@@ -388,7 +392,7 @@ class _virtualAccountHelp:
         :param account表示从本地文件读取的时候有多少各种持仓的df
         """
         self.orders = []
-        self.account = account
+        self.account = account.reset_index(drop=True)
         self.balance = self.account['balance'][0]
 
     def getCash(self):
@@ -429,11 +433,11 @@ class _virtualAccountHelp:
                 self.account['balance'] -= \
                     (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
                     * self.account.loc[i, 'volume'] * allTick[self.account.loc[i, 'contract']].volume_multiple
-
-            self.account.loc[i, 'prePrice'] = allTick[self.account.loc[i, 'contract']].last_price
-            pos = position[self.account.loc[i, 'contract']]
-            self.account.loc[i, 'fund occupied'] = \
-                pos.margin / (pos.pos_long + pos.pos_short)
+            if self.account.loc[i, 'account'] != 1:  # 不是记录信息的行，才计算
+                self.account.loc[i, 'prePrice'] = allTick[self.account.loc[i, 'contract']].last_price
+                pos = position[self.account.loc[i, 'contract']]
+                self.account.loc[i, 'fund occupied'] = \
+                    pos.margin / (pos.pos_long + pos.pos_short)
         logger.debug('账户情况是：')
         logger.debug(str(self.account))
 

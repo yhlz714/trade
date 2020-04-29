@@ -80,9 +80,9 @@ for item in temp:
     item = eval(item)
     for dataNeeded in item[1:]:
         if str(dataNeeded[0]) not in allKline:
-            allKline.addDataSource(str(dataNeeded),
+            allKline.addDataSource(str(dataNeeded[0]),
                                    api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[1]], dataNeeded[2]))
-    allStg.append(eval('stg.' + item[0] + '(allKline, str(item[1]), \'\', {})'))
+    allStg.append(eval('stg.' + item[0] + '(allKline, str(item[1][0]), \'\', {})'))
     # 给策略传递参数，后面两个必须参数先传空字符， 默认参数不传，因为策略不会重名，所以每个策略的默认参数就是运行参数。
 
 
@@ -118,6 +118,8 @@ while True:
         for strategy in allStg:
             broker.strategyNow = strategy
             strategy.onBars(bars)
+    # 每隔一秒进行一次检查。
+    broker.update()
 
     if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':
         broker.stop()  # 处理持仓信息的，将各个虚拟持仓情况写入csv
