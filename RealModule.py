@@ -126,7 +126,7 @@ class RealBroker(backtesting.Broker):
         :rtype: A :class:`MarketOrder` subclass.
         """
         if action==Action.BUY :
-            return self.creatOrder("Buy", quantity, instrument, openOrClose=True)
+            return self.creatOrder("BUY", quantity, instrument, openOrClose=True)
         elif action==Action.SELL_SHORT:
             return self.creatOrder("SELL", quantity, instrument, openOrClose=True)
         elif action == Action.SELL:
@@ -538,6 +538,10 @@ class virtualOrder:
     @property
     def direction(self):
         return self.virDirection
+
+    @property
+    def contract(self):
+        return self.virContract
 
     @property
     def volumeLeft(self):

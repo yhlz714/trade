@@ -37,6 +37,14 @@ class YhlzStreategy(strategy.BacktestingStrategy):
         """
         pass
 
+    def transInstrument(self, instrument):
+        """
+        接受一个品种代码输入，输出一个对应的可以交易的代码，比如有时候策略计算的是主力合约的或者是指数的数据，但是下单却下单到别
+        的地方，也可以在各个策略中继承然后单独实现这个功能，和检查换合约一样。
+        :return:
+        """
+        return instrument
+
     def setRealTrade(self, realBroker, realTrade=True):
         """
         设置是否实盘交易。
@@ -70,8 +78,20 @@ class SMACrossOver(YhlzStreategy):
     def getSMA(self):
         return self.sma
 
-    def onBars(self, bars):
+    def transInstrument(self, instrument):
+        """
+        将指数合约转换为主力合约
+        :param instrument:
+        :return:
+        """
+        if self.realTrade:
+            return self.getBroker().allTick[instrument].underlying_symbol
+        else:
+            return instrument
 
+    def onBars(self, bars):
+        
+        logger.debug('onbars')
         quantity = 100
         if self.realTrade:
             self.sma = talib.SMA(self.prices.values, 10)
