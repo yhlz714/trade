@@ -48,6 +48,12 @@ class RealBroker(backtesting.Broker):
             for contract in item[1:]:
                 if contract[0] not in self.allTick:
                     self.allTick[contract[0]] = self.api.get_quote(contract[0])
+                    # 如果是指数合约那么把对应的主力合约也订阅上。
+                    if 'KQ.i' in contract[0] and contract[0].replace('KQ.i', 'KQ.m') not in self.allTick:
+                        self.allTick[contract[0].replace('KQ.i', 'KQ.m')] = \
+                            self.api.get_quote(contract[0].replace('KQ.i', 'KQ.m'))
+                        self.allTick[self.allTick[contract[0].replace('KQ.i', 'KQ.m')].underlying_symbol] = \
+                            self.allTick[contract[0].replace('KQ.i', 'KQ.m')]
 
         self.strategyAccount = {}  # 存储一个虚拟的分策略的账户信息
         for item in self.strategy:
