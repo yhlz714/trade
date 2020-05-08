@@ -107,12 +107,16 @@ class RealBroker(backtesting.Broker):
         """
         self.orderQueue.append(order)
 
-    def creatOrder(self, direction, volume, contract, openOrClose, strategyName=None):
+    def creatOrder(self, direction, volume, contract, open, strategyName=None, price=None):
         """创建新的订单类"""
         if strategyName==None:
             strategyName = type(self.strategyNow).__name__  # 获取实例的类名
-        logger.debug('创建订单->' + str(direction) + str(volume) + str(contract) + str(openOrClose))
-        return virtualOrder(direction, volume, contract, openOrClose, strategyName, oldOrNew='new')
+        logger.debug('创建订单->' + str(direction) + str(volume) + str(contract) + str(open) + str(price))
+
+        if price==None:  # 市价单
+            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new')
+        else:
+            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new', price=price)
 
     def createMarketOrder(self, action, instrument, quantity, strategyNmae=None, onClose=False):
         """Creates a Market order.
@@ -132,13 +136,13 @@ class RealBroker(backtesting.Broker):
         :rtype: A :class:`MarketOrder` subclass.
         """
         if action==Action.BUY :
-            return self.creatOrder("BUY", quantity, instrument, openOrClose=True)
+            return self.creatOrder("BUY", quantity, instrument, open=True)
         elif action==Action.SELL_SHORT:
-            return self.creatOrder("SELL", quantity, instrument, openOrClose=True)
+            return self.creatOrder("SELL", quantity, instrument, open=True)
         elif action == Action.SELL:
-            return self.creatOrder("SELL", quantity, instrument, openOrClose=False)
+            return self.creatOrder("SELL", quantity, instrument, open=False)
         elif action == Action.BUY_TO_COVER:
-            return self.creatOrder("BUY", quantity, instrument, openOrClose=False)
+            return self.creatOrder("BUY", quantity, instrument, open=False)
         else:
             raise Exception('unkown action!')
 
@@ -237,6 +241,7 @@ class RealBroker(backtesting.Broker):
         self.balence = self.accountInfo.balance
         logger.debug('real account cash is: ' + str(self.cash))
         logger.debug('real account balance is: ' + str(self.balence))
+        # TODO 为什么下单后未成交，却不主动成交？
         """--------------------------------------------下单----------------------------------------------"""
         if self.orderQueue:  # 如果队列中有订单。
             logger.debug('有要下的单分别是：')
@@ -244,11 +249,15 @@ class RealBroker(backtesting.Broker):
             for order in self.orderQueue:
                 logger.debug(str(order))
                 if not order.virContract in groupbyOrder:  # 还没有这个合约
-                    groupbyOrder[order.virContract] = {'long': [], 'short': []}  # 初始化为dict Of list , 分为多空两边
-                if order.virDirection == 'Buy':  # 分买卖两边分类。
-                    groupbyOrder[order.virContract]['long'].append(order)
+                    groupbyOrder[order.virContract] = {'long': [], 'short': [], 'other':[]}
+                    # 初始化为dict Of list , 分为多空两边, 限价单直接进入other 不予对冲
+                if order.price:  # 限价单
+                    groupbyOrder[order.virContract]['other'].append(order)
                 else:
-                    groupbyOrder[order.virContract]['short'].append(order)
+                    if order.virDirection == 'Buy':  # 分买卖两边分类。
+                        groupbyOrder[order.virContract]['long'].append(order)
+                    else:
+                        groupbyOrder[order.virContract]['short'].append(order)
 
             logger.debug('分类完成，dict是： ')
             logger.debug(str(groupbyOrder))
@@ -270,7 +279,7 @@ class RealBroker(backtesting.Broker):
                             groupbyOrder[contract]['short'][s].volumeLeft - groupbyOrder[contract]['long'][b].volumeLeft
                             b += 1
 
-                        elif groupbyOrder[contract]['long'][b].volumeLeft < groupbyOrder[contract]['short'][s].volumeLeft:
+                        elif groupbyOrder[contract]['long'][b].volumeLeft > groupbyOrder[contract]['short'][s].volumeLeft:
                             groupbyOrder[contract]['short'][s].isdead = True
                             groupbyOrder[contract]['long'][b].volumeLeft = \
                             groupbyOrder[contract]['long'][b].volumeLeft - groupbyOrder[contract]['short'][s].volumeLeft
@@ -298,7 +307,7 @@ class RealBroker(backtesting.Broker):
                             logger.debug(str(order))
                             res = self.api.insert_order(order.contract, order.direction,
                                                         'OPEN', order.volumeLeft,
-                                                        self.allTick[order.virContract]['bid_price1'])
+                                                        self.allTick[order.virContract]['upper_limit'])
                             order.attach(res)
                             availablePos -= order.volumeLeft
                         elif availablePos < 0:
@@ -307,7 +316,7 @@ class RealBroker(backtesting.Broker):
                                 logger.debug(str(order))
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', order.volumeLeft,
-                                                            self.allTick[order.virContract]['bid_price1'])
+                                                            self.allTick[order.virContract]['upper_limit'])
                                 order.attach(res)
                                 availablePos += order.volumeLeft
                             else:  # 先平再开
@@ -315,10 +324,10 @@ class RealBroker(backtesting.Broker):
                                 logger.debug(str(order))
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', abs(availablePos),
-                                                            self.allTick[order.virContract]['bid_price1'])
+                                                            self.allTick[order.virContract]['upper_limit'])
                                 res1 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
-                                                             self.allTick[order.virContract]['bid_price1'])
+                                                             self.allTick[order.virContract]['upper_limit'])
                                 order.attach(res)
                                 order.attach(res1)
                                 availablePos = 0
@@ -330,7 +339,7 @@ class RealBroker(backtesting.Broker):
                             logger.debug(str(order))
                             res = self.api.insert_order(order.contract, order.direction,
                                                         'OPEN', order.volumeLeft,
-                                                        self.allTick[order.virContract]['ask_price1'])
+                                                        self.allTick[order.virContract]['lower_limit'])
                             order.attach(res)
                             availablePos += order.volumeLeft
                         elif availablePos > 0:
@@ -339,7 +348,7 @@ class RealBroker(backtesting.Broker):
                                 logger.debug(str(order))
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', order.volumeLeft,
-                                                            self.allTick[order.virContract]['ask_price1'])
+                                                            self.allTick[order.virContract]['lower_limit'])
                                 order.attach(res)
                                 availablePos -= order.volumeLeft
                             else:
@@ -347,13 +356,78 @@ class RealBroker(backtesting.Broker):
                                 logger.debug(str(order))
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', availablePos,
-                                                            self.allTick[order.virContract]['ask_price1'])
+                                                            self.allTick[order.virContract]['lower_limit'])
                                 res1 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - availablePos,
-                                                             self.allTick[order.virContract]['ask_price1'])
+                                                             self.allTick[order.virContract]['lower_limit'])
                                 order.attach(res)
                                 order.attach(res1)
                                 availablePos = 0
+
+                if groupbyOrder[item]['other']:
+                    for order in groupbyOrder[item]['other']:
+                        if order.virDirection == 'SELL':
+                            if availablePos <= 0:  # 要卖，持仓小于0
+                                logger.debug('下单7')
+                                logger.debug(str(order))
+                                res = self.api.insert_order(order.contract, order.direction,
+                                                            'OPEN', order.volumeLeft,
+                                                            order.price)
+                                order.attach(res)
+                                availablePos += order.volumeLeft
+                            elif availablePos > 0:
+                                if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
+                                    logger.debug('下单8')
+                                    logger.debug(str(order))
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSE', order.volumeLeft,
+                                                                order.price)
+                                    order.attach(res)
+                                    availablePos -= order.volumeLeft
+                                else:
+                                    logger.debug('下单9')
+                                    logger.debug(str(order))
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSE', availablePos,
+                                                                order.price)
+                                    res1 = self.api.insert_order(order.contract, order.direction,
+                                                                 'OPEN', order.volumeLeft - availablePos,
+                                                                 order.price)
+                                    order.attach(res)
+                                    order.attach(res1)
+                                    availablePos = 0
+
+                        elif order.virDirection == 'BUY':
+                            if availablePos <= 0:  # 要卖，持仓小于0
+                                logger.debug('下单10')
+                                logger.debug(str(order))
+                                res = self.api.insert_order(order.contract, order.direction,
+                                                            'OPEN', order.volumeLeft,
+                                                            order.price)
+                                order.attach(res)
+                                availablePos += order.volumeLeft
+                            elif availablePos > 0:
+                                if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
+                                    logger.debug('下单11')
+                                    logger.debug(str(order))
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSE', order.volumeLeft,
+                                                                order.price)
+                                    order.attach(res)
+                                    availablePos -= order.volumeLeft
+                                else:
+                                    logger.debug('下单12')
+                                    logger.debug(str(order))
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSE', availablePos,
+                                                                order.price)
+                                    res1 = self.api.insert_order(order.contract, order.direction,
+                                                                 'OPEN', order.volumeLeft - availablePos,
+                                                                 order.price)
+                                    order.attach(res)
+                                    order.attach(res1)
+                                    availablePos = 0
+
             self.orderQueue = []  # 重新归零。
 
         """-------------------------------------未成交处理。先暂时按照等待10秒撤单处理。-----------------------------"""
@@ -481,7 +555,7 @@ class virtualOrder:
     """
     count = 0  # 用来记录当天创建了多少订单，以确定每个实例不会出现重复的id
 
-    def __init__(self, direction, volume, contract, open, strategyName, oldOrNew='old'):
+    def __init__(self, direction, volume, contract, open, strategyName, oldOrNew='old', price=None):
         """
 
         :param direction:
@@ -503,6 +577,7 @@ class virtualOrder:
         self.strategyName = strategyName
 
         self.realOrder = []
+        self.price = price
 
     def __str__(self):
         return 'direction: {}, volume: {}, volumeLeft: {}, contract: {}, open: {}, oldOrNew, {}, time: {}, ' \
@@ -539,7 +614,7 @@ class virtualOrder:
 
     @property
     def limit_price(self):
-        return self.realOrder[0].limit_price  # 有可能有多个真实订单， 但是限价下单的价钱一定一样。
+        return self.price  # 有可能有多个真实订单， 但是限价下单的价钱一定一样。
 
     @property
     def direction(self):
