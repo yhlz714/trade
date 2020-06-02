@@ -16,10 +16,10 @@ logging.basicConfig(filename='log.txt',filemode='a',level = logging.INFO,format 
 print('This is yhlz\'s trading server,now started!\n')
 try:
     #api=TqApi(TqAccount('快期模拟','284837','86888196'))
-    #api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
-    #logging.info('success sign in! with simnow')
-    api=TqApi(TqAccount('H华安期货','100909186','Yhlz0000'))
-    logging.info('success sign in! with 100909186')
+    api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
+    logging.info('success sign in! with simnow')
+    # api=TqApi(TqAccount('H华安期货','100909186','Yhlz0000'))
+    # logging.info('success sign in! with 100909186')
 except Exception:
     logging.info('problem with sign in!')
     raise SystemExit

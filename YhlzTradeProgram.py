@@ -54,7 +54,7 @@ durationTransDict = {'1m': 60, '1d': 86400}
 
 try:
     # api=TqApi(TqAccount('快期模拟','284837','86888196'))
-    api=TqApi(TqAccount('simnow','133492','Yhlz0000'))
+    api=TqApi(TqAccount('simnow','133492','Yhlz0000'), web_gui=True)
     logger.info('success sign in! with simnow')
     # api = TqApi(TqAccount('H华安期货', '100909186', 'Yhlz0000'))
     # Yhlz.info('success sign in! with 100909186')
@@ -95,6 +95,7 @@ now_record = 61  # record minute time
 when = 0
 bars = RealBars()
 logger.info('开始实盘运行')
+second = 0
 while True:
     api.wait_update(time.time() + 1)
     now = time.localtime()
@@ -107,7 +108,7 @@ while True:
             break
     if run:
         logger.debug('running!')
-        time.sleep(0.5)
+        # time.sleep(0.5)
         run = 0
 
         # 准备这个周期的bars
@@ -118,8 +119,13 @@ while True:
         for strategy in allStg:
             broker.strategyNow = strategy
             strategy.onBars(bars)
-    # 每隔一秒进行一次检查。
-    broker.update()
+
+    # 一秒钟更新一次
+
+    if second!= now.tm_sec:
+        second=now.tm_sec
+        # 每隔一秒进行一次检查。
+        broker.update()
 
     if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':
         broker.stop()  # 处理持仓信息的，将各个虚拟持仓情况写入csv

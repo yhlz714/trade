@@ -617,5 +617,5 @@ class RandomOrderStratey(YhlzStreategy):
         elif num == 3:
             direction = broker.Order.Action.BUY_TO_COVER
 
-        a=self.getBroker().createMarketOrder(direction,self.transInstrument(self.__instrument), randint(0, 10))
+        a=self.getBroker().createMarketOrder(direction,self.transInstrument(self.__instrument), randint(1, 10))
         self.getBroker().submitOrder(a)
