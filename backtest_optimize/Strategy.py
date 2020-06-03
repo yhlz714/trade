@@ -30,7 +30,6 @@ class YhlzStreategy(strategy.BacktestingStrategy):
         else:
             super().__init__(barFeed, cashOrBroker)
 
-
     def checkTransPosition(self):
         """
         用来检查是否这个策略需要移仓
@@ -617,5 +616,8 @@ class RandomOrderStratey(YhlzStreategy):
         elif num == 3:
             direction = broker.Order.Action.BUY_TO_COVER
 
-        a=self.getBroker().createMarketOrder(direction,self.transInstrument(self.__instrument), randint(1, 10))
+        a=self.getBroker().createMarketOrder(direction, self.transInstrument(self.__instrument), randint(1, 10))
         self.getBroker().submitOrder(a)
+
+    def transInstrument(self, instrument):
+        return 'SHFE.rb2010'

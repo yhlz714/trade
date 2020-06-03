@@ -7,6 +7,8 @@ import threading
 from pyalgotrade.stratanalyzer import sharpe
 from pyalgotrade.stratanalyzer import drawdown
 from matplotlib import pyplot as plt
+
+# 避免画图除warning。
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 

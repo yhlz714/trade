@@ -1,3 +1,1 @@
 ['SMACrossOver', ['KQ.i@SHFE.rb', '1m', 700]]
-['RandomOrderStratey', ['KQ.i@SHFE.rb', '1m', 700]]
-['RandomOrderStratey', ['KQ.i@SHFE.hc', '1m', 700]]

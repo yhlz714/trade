@@ -1,6 +1,7 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-
+# TODO 还需检查下单后长时间未成交是否能撤单。
+# TODO 下单后有持仓了，虚拟账户持仓未发生改变！
 import time
 import logging
 
@@ -10,7 +11,7 @@ from pyalgotrade.barfeed import csvfeed
 from pyalgotrade.bar import Frequency
 from tqsdk import TqApi
 import pandas as pd
-
+pd.set_option('display.max_columns', None)
 logger = logging.getLogger('Yhlz')
 
 class RealBroker(backtesting.Broker):
@@ -56,6 +57,7 @@ class RealBroker(backtesting.Broker):
                             self.allTick[contract[0].replace('KQ.i', 'KQ.m')]
 
         self.strategyAccount = {}  # 存储一个虚拟的分策略的账户信息
+
         for item in self.strategy:
             self.strategyAccount[item] = _virtualAccountHelp(realAccount[realAccount.loc[:, 'strategy'] == item])
 
@@ -236,12 +238,11 @@ class RealBroker(backtesting.Broker):
 
     def update(self):
         """每一个Onbar循环最后来处理这个时间点所有的需要更新的任务，比如更新虚拟账户的情况，订单报单等。"""
-
+        # print(self.allTick['SHFE.rb2010']['last_price'])
         self.cash = self.accountInfo.available
         self.balence = self.accountInfo.balance
         logger.debug('real account cash is: ' + str(self.cash))
         logger.debug('real account balance is: ' + str(self.balence))
-        # TODO 为什么下单后未成交，却不主动成交？
         """--------------------------------------------下单----------------------------------------------"""
         if self.orderQueue:  # 如果队列中有订单。
             logger.debug('有要下的单分别是：')
@@ -308,6 +309,7 @@ class RealBroker(backtesting.Broker):
                             res = self.api.insert_order(order.contract, order.direction,
                                                         'OPEN', order.volumeLeft,
                                                         self.allTick[order.virContract]['upper_limit'])
+                            self.unfilledQueue.append(res)
                             order.attach(res)
                             availablePos -= order.volumeLeft
                         elif availablePos < 0:
@@ -317,6 +319,7 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', order.volumeLeft,
                                                             self.allTick[order.virContract]['upper_limit'])
+                                self.unfilledQueue.append(res)
                                 order.attach(res)
                                 availablePos += order.volumeLeft
                             else:  # 先平再开
@@ -325,9 +328,11 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', abs(availablePos),
                                                             self.allTick[order.virContract]['upper_limit'])
+                                self.unfilledQueue.append(res)
                                 res1 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['upper_limit'])
+                                self.unfilledQueue.append(res1)
                                 order.attach(res)
                                 order.attach(res1)
                                 availablePos = 0
@@ -340,6 +345,7 @@ class RealBroker(backtesting.Broker):
                             res = self.api.insert_order(order.contract, order.direction,
                                                         'OPEN', order.volumeLeft,
                                                         self.allTick[order.virContract]['lower_limit'])
+                            self.unfilledQueue.append(res)
                             order.attach(res)
                             availablePos += order.volumeLeft
                         elif availablePos > 0:
@@ -349,6 +355,7 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', order.volumeLeft,
                                                             self.allTick[order.virContract]['lower_limit'])
+                                self.unfilledQueue.append(res)
                                 order.attach(res)
                                 availablePos -= order.volumeLeft
                             else:
@@ -357,9 +364,11 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', availablePos,
                                                             self.allTick[order.virContract]['lower_limit'])
+                                self.unfilledQueue.append(res)
                                 res1 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - availablePos,
                                                              self.allTick[order.virContract]['lower_limit'])
+                                self.unfilledQueue.append(res1)
                                 order.attach(res)
                                 order.attach(res1)
                                 availablePos = 0
@@ -373,6 +382,7 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'OPEN', order.volumeLeft,
                                                             order.price)
+                                self.unfilledQueue.append(res)
                                 order.attach(res)
                                 availablePos += order.volumeLeft
                             elif availablePos > 0:
@@ -382,6 +392,7 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', order.volumeLeft,
                                                                 order.price)
+                                    self.unfilledQueue.append(res)
                                     order.attach(res)
                                     availablePos -= order.volumeLeft
                                 else:
@@ -390,9 +401,11 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', availablePos,
                                                                 order.price)
+                                    self.unfilledQueue.append(res)
                                     res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - availablePos,
                                                                  order.price)
+                                    self.unfilledQueue.append(res1)
                                     order.attach(res)
                                     order.attach(res1)
                                     availablePos = 0
@@ -404,6 +417,7 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'OPEN', order.volumeLeft,
                                                             order.price)
+                                self.unfilledQueue.append(res)
                                 order.attach(res)
                                 availablePos += order.volumeLeft
                             elif availablePos > 0:
@@ -413,6 +427,7 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', order.volumeLeft,
                                                                 order.price)
+                                    self.unfilledQueue.append(res)
                                     order.attach(res)
                                     availablePos -= order.volumeLeft
                                 else:
@@ -421,9 +436,11 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', availablePos,
                                                                 order.price)
+                                    self.unfilledQueue.append(res)
                                     res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - availablePos,
                                                                  order.price)
+                                    self.unfilledQueue.append(res1)
                                     order.attach(res)
                                     order.attach(res1)
                                     availablePos = 0
@@ -436,7 +453,10 @@ class RealBroker(backtesting.Broker):
             while self.unfilledQueue:
                 temp = self.unfilledQueue.pop()
                 if not temp.is_dead:
-                    if time.time() - temp.time > 10:  # 大于10秒，且价格不是最优撤单。
+                    # if not temp.insert_date_time:
+                    #     temp.insert_date_time = time.time()
+                    if time.time() - temp.insert_date_time > 5 and temp.insert_date_time:
+                        # 大于5秒，且价格不是最优撤单。 刚开始插入还没有wait_update()的时候是0，要判断一下
                         if temp.direction == 'BUY':
                             if temp.limit_price != self.allTick[temp.instrument_id].bid_price1:
                                 self.cancelOrderQueue.append(temp)
@@ -499,8 +519,8 @@ class _virtualAccountHelp:
         :param position: tqsdk的position， 用来计算每个不同合约的保证金占用。
         :return:
         """
-        logger.debug('tick 是：')
-        logger.debug(str(allTick))
+        # logger.debug('tick 是：')
+        # logger.debug(str(allTick))
         for i in range(len(self.account)):
             if self.account.loc[i, 'direction'] == 'Buy':
                 # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
@@ -518,8 +538,8 @@ class _virtualAccountHelp:
                 pos = position[self.account.loc[i, 'contract']]
                 self.account.loc[i, 'fund occupied'] = \
                     pos.margin / (pos.pos_long + pos.pos_short)
-        logger.debug('账户情况是：')
-        logger.debug(str(self.account))
+        # logger.debug('账户情况是：')
+        # logger.debug(str(self.account))
 
         # 处理订单的更新。更新position account 就是 position
         for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
@@ -545,7 +565,7 @@ class _virtualAccountHelp:
                         [order.direction, order.volume, order.contract]
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
-        logger.debug('更新完订单以后的账户情况是：')
+        logger.debug('更新完订单以后的账户情况是：\n')
         logger.debug(str(self.account))
 
 
@@ -580,7 +600,7 @@ class virtualOrder:
         self.price = price
 
     def __str__(self):
-        return 'direction: {}, volume: {}, volumeLeft: {}, contract: {}, open: {}, oldOrNew, {}, time: {}, ' \
+        return 'direction: {}, volume: {}, volumeLeft: {}, contract: {}, open: {}, oldOrNew：{}, time: {}, ' \
                '.isdead: {}, strategyName: {}'.format(self.virDirection, self.virVolume, self.volumeLeft,
                                                       self.virContract, self.open, self.oldOrNew, self.time,
                                                       self.is_dead, self.strategyName)
