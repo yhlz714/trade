@@ -11,6 +11,7 @@ from pyalgotrade import strategy
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
 from pyalgotrade import broker
+from pyalgotrade.broker.backtesting import Broker
 import talib
 import pandas as pd
 import numpy as np
@@ -24,11 +25,13 @@ class YhlzStreategy(strategy.BacktestingStrategy):
     realTrade = False
     realBroker = ''
 
-    def __init__(self, barFeed, cashOrBroker=1000000):
+    def __init__(self, barFeed, cash=10000):
         if self.realTrade:
             super().__init__(barFeed, self.realBroker)
         else:
-            super().__init__(barFeed, cashOrBroker)
+            temp = Broker(cash,barFeed)
+            temp.setAllowNegativeCash(True)
+            super().__init__(barFeed, temp)
 
     def checkTransPosition(self):
         """
@@ -163,7 +166,7 @@ class TurtleTrade(YhlzStreategy):
         :parm long 唐奇安通道的长期
         :parm dictOfDataDf 包含所有数据的dict，其中每一个category是一个df
         """
-        self.initialCash = 50000
+        self.initialCash = 100000
         super(TurtleTrade, self).__init__(feed, self.initialCash)
         self.feed = feed
         if isinstance(instruments, list):  # 对于不是多个品种的情况，进行判断，如果是字符串，用list包裹在存储
@@ -377,7 +380,7 @@ class TurtleTrade(YhlzStreategy):
             self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
 
         # res = int(quantity / atr / 100 / KQmultiplier)  # 向下取整
-        res = int(quantity / atr / 100)  # 由于目前回测系统没有考虑合约乘数，不需要除以合约乘数
+        res = int(quantity / atr / 20)  # 由于目前回测系统没有考虑合约乘数，不需要除以合约乘数
 
         if res:
             return res

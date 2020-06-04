@@ -69,6 +69,7 @@ def Backtest():
     # 表示按照序列有多长，除掉250天表示有多少年，然后进行开方。
 
     # 画图
+    # 画图
 
     # 画叠加品种图, 多品种时不方便对齐时间，所以暂时不画。
     # fig, ax1 = plt.subplots()
@@ -83,7 +84,7 @@ def Backtest():
 
     print("Sharpe ratio: %.2f" % (sharpeRatioAnalyzer.getSharpeRatio(0.05)))
     print("Max. drawdown: %.2f %%" % (drawDownAnalyzer.getMaxDrawDown() * 100))
-    print("Value of Max. drawdown: %.2f " % -(drawDownAnalyzer.maxDrawDownValue))
+    # print("Value of Max. drawdown: %.2f " % -(drawDownAnalyzer.maxDrawDownValue))
     print("Longest drawdown duration: %s" % (drawDownAnalyzer.getLongestDrawDownDuration()))
     tradeAnalyzer.all_trade.to_csv(str(time.time()) + '.csv')
 
@@ -122,7 +123,7 @@ class Context:
 if __name__ == '__main__':
     context = Context()
     context.categorys = ['rb', 'i',  'cu', 'j', 'm', 'SR', 'ru', 'TA', 'IF', 'IC',
-                         'au', 'ag', 'p', 'CF', 'ni', 'y', 'T', 'pp']  # 给定所有要回测的品种
+                         'au', 'ag', 'p', 'CF', 'ni', 'y', 'pp']  # 给定所有要回测的品种'T',
     context.categoryToFile = {'rb': 'KQi@SHFErb',
                               'i': 'KQi@DCEi',
                               'cu': 'KQi@SHFEcu',
@@ -199,8 +200,10 @@ if __name__ == '__main__':
     kline.draw()
     # 创建窗口
     backtest = threading.Thread(target=Backtest, name='backtest')
-    backtest.start()
+
+    # backtest.start()
+    backtest.run()
 
     # delay_deal()
     # context.root.mainloop()
-    backtest.join()
+    # backtest.join()

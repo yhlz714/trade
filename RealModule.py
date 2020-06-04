@@ -148,7 +148,7 @@ class RealBroker(backtesting.Broker):
         else:
             raise Exception('unkown action!')
 
-    def createLimitOrder(self, action, instrument, limitPrice, quantity):
+    def createLimitOrder(self, action, instrument, quantity, limitPrice=None):
         """Creates a Limit order.
         A limit order is an order to buy or sell a stock at a specific price or better.
         A buy limit order can only be executed at the limit price or lower, and a sell limit order can only be executed at the
@@ -158,13 +158,31 @@ class RealBroker(backtesting.Broker):
         :type action: Order.Action.BUY, or Order.Action.BUY_TO_COVER, or Order.Action.SELL or Order.Action.SELL_SHORT.
         :param instrument: Instrument identifier.
         :type instrument: string.
-        :param limitPrice: The order price.
+        :param limitPrice: The order price. 如果没有填写默认None则用排队最优价处理
         :type limitPrice: float
         :param quantity: Order quantity.
         :type quantity: int/float.
         :rtype: A :class:`LimitOrder` subclass.
         """
-        raise NotImplementedError()
+
+        if action == Action.BUY:
+            if not limitPrice:  # 没有提供价格的限价单。
+                limitPrice = self.allTick[instrument].ask_price1
+            return self.creatOrder("BUY", quantity, instrument, open=True, price=limitPrice)
+        elif action == Action.SELL_SHORT:
+            if not limitPrice:  # 没有提供价格的限价单。
+                limitPrice = self.allTick[instrument].bid_price1
+            return self.creatOrder("SELL", quantity, instrument, open=True, price=limitPrice)
+        elif action == Action.SELL:
+            if not limitPrice:  # 没有提供价格的限价单。
+                limitPrice = self.allTick[instrument].bid_price1
+            return self.creatOrder("SELL", quantity, instrument, open=False, price=limitPrice)
+        elif action == Action.BUY_TO_COVER:
+            if not limitPrice:  # 没有提供价格的限价单。
+                limitPrice = self.allTick[instrument].ask_price1
+            return self.creatOrder("BUY", quantity, instrument, open=False, price=limitPrice)
+        else:
+            raise Exception('unkown action!')
 
     def createStopOrder(self, action, instrument, stopPrice, quantity):
         """Creates a Stop order.
@@ -255,7 +273,7 @@ class RealBroker(backtesting.Broker):
                 if order.price:  # 限价单
                     groupbyOrder[order.virContract]['other'].append(order)
                 else:
-                    if order.virDirection == 'Buy':  # 分买卖两边分类。
+                    if order.virDirection == 'BUY':  # 分买卖两边分类。
                         groupbyOrder[order.virContract]['long'].append(order)
                     else:
                         groupbyOrder[order.virContract]['short'].append(order)
@@ -450,13 +468,17 @@ class RealBroker(backtesting.Broker):
         """-------------------------------------未成交处理。先暂时按照等待10秒撤单处理。-----------------------------"""
         if self.unfilledQueue:
             logger.debug('处理未成交的单')
+            tempList = []
             while self.unfilledQueue:
-                temp = self.unfilledQueue.pop()
-                if not temp.is_dead:
+                temp = self.unfilledQueue.pop()  # 把第一个拿出来，如果没有dead就重新append回去，append在末尾，正好整个循环一次。
+                if not temp.is_dead:  # 如果dead了就不在append回来了，直接不管了。
                     # if not temp.insert_date_time:
                     #     temp.insert_date_time = time.time()
+                    logger.debug('有单未死')
+                    logger.debug(temp.insert_date_time)
                     if time.time() - temp.insert_date_time > 5 and temp.insert_date_time:
                         # 大于5秒，且价格不是最优撤单。 刚开始插入还没有wait_update()的时候是0，要判断一下
+                        logger.debug('超时未成交！')
                         if temp.direction == 'BUY':
                             if temp.limit_price != self.allTick[temp.instrument_id].bid_price1:
                                 self.cancelOrderQueue.append(temp)
@@ -465,6 +487,9 @@ class RealBroker(backtesting.Broker):
                             if temp.limit_price != self.allTick[temp.instrument_id].ask_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
+                    tempList.append(temp)
+            self.unfilledQueue = tempList
+            logger.debug(str(self.unfilledQueue))
         """--------------------------------------------撤单--------------------------------------------------------"""
         if self.cancelOrderQueue:  # 撤单处理。
             logger.debug('撤单处理')
@@ -522,13 +547,13 @@ class _virtualAccountHelp:
         # logger.debug('tick 是：')
         # logger.debug(str(allTick))
         for i in range(len(self.account)):
-            if self.account.loc[i, 'direction'] == 'Buy':
+            if self.account.loc[i, 'direction'] == 'BUY':
                 # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
                 self.account['balance'] += \
                     (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
                     * self.account.loc[i, 'volume'] * allTick[self.account.loc[i, 'contract']].volume_multiple
 
-            elif self.account.loc[i, 'direction'] == 'Sell':
+            elif self.account.loc[i, 'direction'] == 'SELL':
                 # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
                 self.account['balance'] -= \
                     (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
@@ -565,8 +590,8 @@ class _virtualAccountHelp:
                         [order.direction, order.volume, order.contract]
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
-        logger.debug('更新完订单以后的账户情况是：\n')
-        logger.debug(str(self.account))
+        logger.debug('更新完订单以后的账户情况是：')
+        logger.debug('\n' + str(self.account))
 
 
 class virtualOrder:
