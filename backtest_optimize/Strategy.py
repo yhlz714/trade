@@ -110,21 +110,21 @@ class SMACrossOver(YhlzStreategy):
             logger.debug(str(self.sma1[-3:]))
             if self.sma[-1] > self.sma1[-1] and self.sma[-2] < self.sma1[-2]:
                 if self.getBroker().getShares(self.transInstrument(self.__instrument)) != 0:
-                    ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY_TO_COVER,
+                    ret = self.getBroker().createLimitOrder(broker.Order.Action.BUY_TO_COVER,
                                                              self.transInstrument(self.__instrument), quantity)
                     self.getBroker().submitOrder(ret)
                     logger.debug('平仓1')
-                ret = self.getBroker().createMarketOrder(broker.Order.Action.BUY,
+                ret = self.getBroker().createLimitOrder(broker.Order.Action.BUY,
                                                          self.transInstrument(self.__instrument), quantity)
                 self.getBroker().submitOrder(ret)
                 logger.debug('买1' + str(bars.getDateTime()))
             elif self.sma[-1] < self.sma1[-1] and self.sma[-2] > self.sma1[-2]:
                 if self.getBroker().getShares(self.__instrument) != 0:
-                    ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL,
+                    ret = self.getBroker().createLimitOrder(broker.Order.Action.SELL,
                                                              self.transInstrument(self.__instrument), quantity)
                     self.getBroker().submitOrder(ret)
                     logger.debug('平仓2')
-                ret = self.getBroker().createMarketOrder(broker.Order.Action.SELL_SHORT,
+                ret = self.getBroker().createLimitOrder(broker.Order.Action.SELL_SHORT,
                                                          self.transInstrument(self.__instrument), quantity)
                 self.getBroker().submitOrder(ret)
                 logger.debug('卖1' + str(bars.getDateTime()))
