@@ -1,7 +1,7 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 还需检查下单后长时间未成交是否能撤单。
-# TODO 下单后有持仓了，虚拟账户持仓未发生改变！
+# TODO 还是不会撤单
+# TODO 下单后生成的虚拟订单没有关联到虚拟账户，在realBroker的update（）里面。
 import time
 import logging
 
@@ -167,19 +167,19 @@ class RealBroker(backtesting.Broker):
 
         if action == Action.BUY:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].ask_price1
+                limitPrice = self.allTick[instrument].ask_price1-10
             return self.creatOrder("BUY", quantity, instrument, open=True, price=limitPrice)
         elif action == Action.SELL_SHORT:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].bid_price1
+                limitPrice = self.allTick[instrument].bid_price1+10
             return self.creatOrder("SELL", quantity, instrument, open=True, price=limitPrice)
         elif action == Action.SELL:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].bid_price1
+                limitPrice = self.allTick[instrument].bid_price1+10
             return self.creatOrder("SELL", quantity, instrument, open=False, price=limitPrice)
         elif action == Action.BUY_TO_COVER:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].ask_price1
+                limitPrice = self.allTick[instrument].ask_price1-10
             return self.creatOrder("BUY", quantity, instrument, open=False, price=limitPrice)
         else:
             raise Exception('unkown action!')
@@ -499,9 +499,14 @@ class RealBroker(backtesting.Broker):
                 for i in temp.realOrder:
                     if not i.is_dead:
                         self.api.cancel_order(i.order_id)
-                # 重新下单
-                self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                                    temp.virContract, temp.open, type(self.strategyNow).__name__))
+                if temp.limit_price:
+                    # 重新下限价单
+                    self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
+                                           temp.virContract, temp.open, type(self.strategyNow).__name__,price=temp.limit_price))
+                else:
+                    # 重新下单
+                    self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
+                                                        temp.virContract, temp.open, type(self.strategyNow).__name__))
         """------------------------------------------更新各个虚拟账户。------------------------------------------"""
         for item in self.strategy:  # 更新各个虚拟账户数据
             self.strategyAccount[item].update(self.allTick, self.posDict)
@@ -568,11 +573,14 @@ class _virtualAccountHelp:
 
         # 处理订单的更新。更新position account 就是 position
         for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
+            logger.debug('处理订单变化')
             if order.is_dead:
+                logger.debug('有完成的订单')
                 self.orders.remove(order)
                 tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x: x)
                 tempStr = str(order.contract) + str(order.direction) + str(order.oldOrNew)
                 if tempStr in tempTrade:  # 说明有这个持仓
+                    logger.debug('修改旧持仓。')
                     if order.open:
                         tempTrade['volume'] += order.volume  # 将这个数量加上即可
                     else:  # 平仓
@@ -586,6 +594,7 @@ class _virtualAccountHelp:
 
                     self.account = tempTrade.reset_index()
                 else:
+                    logger.debug('创建新持仓')
                     self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
                         [order.direction, order.volume, order.contract]
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
