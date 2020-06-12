@@ -32,7 +32,7 @@ class RealBroker(backtesting.Broker):
         self.unfilledQueue = []
         self.cancelOrderQueue = []
         self.strategy = {}  # 存放所有的strategy
-        self.strategyNow = None  # 代表这个时候onbars运行的strategy
+        self.strategyNow = None  # 代表这个时候onbars运行的strategy，在RealBroker的实例中可以修改这个值，用来提示内部此时运行的策略
         self.cash = 0
         self.balence = 0
         self.allTick = {}
@@ -107,7 +107,8 @@ class RealBroker(backtesting.Broker):
         :param order: The order to submit.
         :type order: :class:`Order`.
         """
-        self.orderQueue.append(order)
+        self.strategyAccount[self.strategyNow].addOrder(order)  # 给虚拟账户更新订单流
+        self.orderQueue.append(order)  # 给实际订单处理序列增加订单流。
 
     def creatOrder(self, direction, volume, contract, open, strategyName=None, price=None):
         """创建新的订单类"""
@@ -262,6 +263,7 @@ class RealBroker(backtesting.Broker):
         logger.debug('real account cash is: ' + str(self.cash))
         logger.debug('real account balance is: ' + str(self.balence))
         """--------------------------------------------下单----------------------------------------------"""
+        #  注，所有的Queue里面全部都是VirtualOrder
         if self.orderQueue:  # 如果队列中有订单。
             logger.debug('有要下的单分别是：')
             groupbyOrder = {}  # 用一个dict来装分类订单。
@@ -293,13 +295,13 @@ class RealBroker(backtesting.Broker):
                             s += 1
 
                         elif groupbyOrder[contract]['long'][b].volumeLeft < groupbyOrder[contract]['short'][s].volumeLeft:
-                            groupbyOrder[contract]['long'][b].isdead = True
+                            groupbyOrder[contract]['long'][b].is_dead = True
                             groupbyOrder[contract]['short'][s].volumeLeft = \
                             groupbyOrder[contract]['short'][s].volumeLeft - groupbyOrder[contract]['long'][b].volumeLeft
                             b += 1
 
                         elif groupbyOrder[contract]['long'][b].volumeLeft > groupbyOrder[contract]['short'][s].volumeLeft:
-                            groupbyOrder[contract]['short'][s].isdead = True
+                            groupbyOrder[contract]['short'][s].is_dead = True
                             groupbyOrder[contract]['long'][b].volumeLeft = \
                             groupbyOrder[contract]['long'][b].volumeLeft - groupbyOrder[contract]['short'][s].volumeLeft
                             s += 1
@@ -327,8 +329,8 @@ class RealBroker(backtesting.Broker):
                             res = self.api.insert_order(order.contract, order.direction,
                                                         'OPEN', order.volumeLeft,
                                                         self.allTick[order.virContract]['upper_limit'])
-                            self.unfilledQueue.append(res)
                             order.attach(res)
+                            self.unfilledQueue.append(order)
                             availablePos -= order.volumeLeft
                         elif availablePos < 0:
                             if abs(availablePos) > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
@@ -337,8 +339,9 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', order.volumeLeft,
                                                             self.allTick[order.virContract]['upper_limit'])
-                                self.unfilledQueue.append(res)
+
                                 order.attach(res)
+                                self.unfilledQueue.append(order)
                                 availablePos += order.volumeLeft
                             else:  # 先平再开
                                 logger.debug('下单3')
@@ -346,13 +349,12 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', abs(availablePos),
                                                             self.allTick[order.virContract]['upper_limit'])
-                                self.unfilledQueue.append(res)
                                 res1 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['upper_limit'])
-                                self.unfilledQueue.append(res1)
                                 order.attach(res)
                                 order.attach(res1)
+                                self.unfilledQueue.append(order)
                                 availablePos = 0
 
                 elif groupbyOrder[item]['short']:
@@ -363,8 +365,8 @@ class RealBroker(backtesting.Broker):
                             res = self.api.insert_order(order.contract, order.direction,
                                                         'OPEN', order.volumeLeft,
                                                         self.allTick[order.virContract]['lower_limit'])
-                            self.unfilledQueue.append(res)
                             order.attach(res)
+                            self.unfilledQueue.append(order)
                             availablePos += order.volumeLeft
                         elif availablePos > 0:
                             if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
@@ -373,8 +375,8 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', order.volumeLeft,
                                                             self.allTick[order.virContract]['lower_limit'])
-                                self.unfilledQueue.append(res)
                                 order.attach(res)
+                                self.unfilledQueue.append(order)
                                 availablePos -= order.volumeLeft
                             else:
                                 logger.debug('下单6')
@@ -382,13 +384,12 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'CLOSE', availablePos,
                                                             self.allTick[order.virContract]['lower_limit'])
-                                self.unfilledQueue.append(res)
                                 res1 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - availablePos,
                                                              self.allTick[order.virContract]['lower_limit'])
-                                self.unfilledQueue.append(res1)
                                 order.attach(res)
                                 order.attach(res1)
+                                self.unfilledQueue.append(order)
                                 availablePos = 0
 
                 if groupbyOrder[item]['other']:
@@ -400,8 +401,8 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'OPEN', order.volumeLeft,
                                                             order.price)
-                                self.unfilledQueue.append(res)
                                 order.attach(res)
+                                self.unfilledQueue.append(order)
                                 availablePos += order.volumeLeft
                             elif availablePos > 0:
                                 if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
@@ -410,8 +411,8 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', order.volumeLeft,
                                                                 order.price)
-                                    self.unfilledQueue.append(res)
                                     order.attach(res)
+                                    self.unfilledQueue.append(order)
                                     availablePos -= order.volumeLeft
                                 else:
                                     logger.debug('下单9')
@@ -419,13 +420,12 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', availablePos,
                                                                 order.price)
-                                    self.unfilledQueue.append(res)
                                     res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - availablePos,
                                                                  order.price)
-                                    self.unfilledQueue.append(res1)
                                     order.attach(res)
                                     order.attach(res1)
+                                    self.unfilledQueue.append(order)
                                     availablePos = 0
 
                         elif order.virDirection == 'BUY':
@@ -435,8 +435,8 @@ class RealBroker(backtesting.Broker):
                                 res = self.api.insert_order(order.contract, order.direction,
                                                             'OPEN', order.volumeLeft,
                                                             order.price)
-                                self.unfilledQueue.append(res)
                                 order.attach(res)
+                                self.unfilledQueue.append(order)
                                 availablePos += order.volumeLeft
                             elif availablePos > 0:
                                 if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
@@ -445,8 +445,8 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', order.volumeLeft,
                                                                 order.price)
-                                    self.unfilledQueue.append(res)
                                     order.attach(res)
+                                    self.unfilledQueue.append(order)
                                     availablePos -= order.volumeLeft
                                 else:
                                     logger.debug('下单12')
@@ -454,13 +454,12 @@ class RealBroker(backtesting.Broker):
                                     res = self.api.insert_order(order.contract, order.direction,
                                                                 'CLOSE', availablePos,
                                                                 order.price)
-                                    self.unfilledQueue.append(res)
                                     res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - availablePos,
                                                                  order.price)
-                                    self.unfilledQueue.append(res1)
                                     order.attach(res)
                                     order.attach(res1)
+                                    self.unfilledQueue.append(order)
                                     availablePos = 0
 
             self.orderQueue = []  # 重新归零。
@@ -476,15 +475,15 @@ class RealBroker(backtesting.Broker):
                     #     temp.insert_date_time = time.time()
                     logger.debug('有单未死')
                     logger.debug(temp.insert_date_time)
-                    if time.time() - temp.insert_date_time > 5 and temp.insert_date_time:
-                        # 大于5秒，且价格不是最优撤单。 刚开始插入还没有wait_update()的时候是0，要判断一下
+                    if time.time() - temp.insert_date_time > 5:
+                        # 大于5秒，且价格不是最优撤单
                         logger.debug('超时未成交！')
                         if temp.direction == 'BUY':
-                            if temp.limit_price != self.allTick[temp.instrument_id].bid_price1:
+                            if temp.limit_price != self.allTick[temp.exchange_id + '.' + temp.instrument_id].bid_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
                         else:
-                            if temp.limit_price != self.allTick[temp.instrument_id].ask_price1:
+                            if temp.limit_price != self.allTick[temp.exchange_id + '.' + temp.instrument_id].ask_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
                     tempList.append(temp)
@@ -502,7 +501,7 @@ class RealBroker(backtesting.Broker):
                 if temp.limit_price:
                     # 重新下限价单
                     self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                           temp.virContract, temp.open, type(self.strategyNow).__name__,price=temp.limit_price))
+                                           temp.virContract, temp.open, type(self.strategyNow).__name__, price=temp.limit_price))
                 else:
                     # 重新下单
                     self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
@@ -523,7 +522,10 @@ class _virtualAccountHelp:
         """
         self.orders = []
         self.account = account.reset_index(drop=True)
-        self.balance = self.account['balance'][0]
+        try:
+            self.balance = self.account['balance'][0]
+        except :
+            print('检查是否在currentAccount里面有所有运行策略持仓！')
 
     def getCash(self):
         return self.balance - self.account['funds_occupied'].sum()
@@ -649,6 +651,7 @@ class virtualOrder:
 
     @property
     def is_dead(self):
+        #  如果全部真实单都死了，虚拟单才会死
         for item in self.realOrder:
             if not item.is_dead:
                 self.__is_dead = False
