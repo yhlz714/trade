@@ -36,7 +36,7 @@ class Get_Input(threading.Thread):
 
 """----------------------------------------------³õÊ¼»¯½×¶Î----------------------------------------------------------"""
 logger = logging.getLogger('Yhlz')
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 fm =logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 fh = logging.FileHandler('log.txt', mode='a')
 fh.setFormatter(fm)
