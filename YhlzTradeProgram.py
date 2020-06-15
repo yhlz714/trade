@@ -49,7 +49,7 @@ mail_handler = SMTPHandler(
         mailhost='smtp.qq.com',
         fromaddr='517353631@qq.com',
         toaddrs='517353631@qq.com',
-        subject='running info!',
+        subject='running info! simnow',
         credentials=('517353631@qq.com', 'kyntpvjwuxfvbiag'))
 mail_handler.setLevel(logging.INFO)
 mail_handler.setFormatter(fm)
@@ -82,24 +82,39 @@ try:
     temp = f.readlines()
     f.close()
 
-    #  初始化数据
+    '---------------------------------------------------初始化数据------------------------------------------------------'
 
     strategys = {}
+    allTick = {}
     allKline = RealFeed()
     # 初始化策略
     pos = api.get_position()
+    orders = api.get_order()
     broker = RealBroker(api, pos)
     allStg = []
+    # 设置所有策略的基策略的交易模式。
     stg.YhlzStreategy.realTrade = True
     stg.YhlzStreategy.realBroker = broker
 
+    realAccount = pd.read_csv('currentAccount.csv')
+
     for item in temp:
         item = eval(item)
+        # !!! 策略不可重名， 如需同策略不同参数，可以继承一个，然后换个名字。
+        strategys[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
         for dataNeeded in item[1:]:
             if str(dataNeeded[0]) not in allKline:
                 allKline.addDataSource(str(dataNeeded[0]),
                                        api.get_kline_serial(dataNeeded[0], durationTransDict[dataNeeded[1]],
                                                             dataNeeded[2]))
+            if dataNeeded[0] not in allTick:
+                allTick[dataNeeded[0]] = api.get_quote(dataNeeded[0])
+                # 如果是指数合约那么把对应的主力合约也订阅上。
+                if 'KQ.i' in dataNeeded[0] and dataNeeded[0].replace('KQ.i', 'KQ.m') not in allTick:
+                    allTick[dataNeeded[0].replace('KQ.i', 'KQ.m')] = \
+                        api.get_quote(dataNeeded[0].replace('KQ.i', 'KQ.m'))
+                    allTick[allTick[dataNeeded[0].replace('KQ.i', 'KQ.m')].underlying_symbol] = \
+                        allTick[dataNeeded[0].replace('KQ.i', 'KQ.m')]
         allStg.append(eval('stg.' + item[0] + '(allKline, str(item[1][0]), \'\', {})'))
         # 给策略传递参数，后面两个必须参数先传空字符， 默认参数不传，因为策略不会重名，所以每个策略的默认参数就是运行参数。
 
@@ -113,6 +128,11 @@ try:
     bars = RealBars()
     logger.debug('开始实盘运行')
     second = 0
+    upList = []
+    lowList = []
+    upperLimitList = []
+    lowerLimitList = []
+
     while True:
         api.wait_update(time.time() + 1)
         now = time.localtime()
@@ -144,13 +164,59 @@ try:
             # 每隔一秒进行一次检查。
             broker.update()
 
+        if not now.tm_min % 15:  # 当时间分钟数整除15时，也就是十五分钟运行一次
+            logger.info(str(pos))
+
+        # 检测是否接近涨跌停预警
+        for item in allTick:
+            if not item.instrument_id in upList :
+                if (item.upper_limit - item.last_price) / item.last_price < 0.01:
+                    logger.warning(item.instrument_id + ' 接近涨停')
+                    upList.append(item.instrument_id)
+                    if item.upper_limit == item.last_price:
+                        upperLimitList.append(item.instrument_id)
+
+            elif not item.instrument_id in lowList:
+                if (item.last_price - item.lower_limit ) / item.last_price < 0.01:
+                    logger.warning(item.instrument_id + ' 接近跌停')
+                    lowList.append(item.instrument_id)
+                    if item.lower_limit == item.last_price:
+                        lowerLimitList.append(item.instrument_id)
+
+            elif item.instrument_id in upList:
+                if (item.upper_limit - item.last_price) / item.last_price > 0.01:
+                    logger.warning(item.instrument_id + ' 离开涨停附近')
+                    upList.remove(item.instrument_id)
+                    if item.instrument_id in upperLimitList and item.upper_limit != item.last_price:
+                        upperLimitList.remove(item.instrument_id)
+
+            elif item.instrument_id in lowList:
+                if (item.last_price - item.lower_limit) / item.last_price > 0.01:
+                    logger.warning(item.instrument_id + ' 离开跌停附近')
+                    lowList.remove(item.instrument_id)
+                    if item.instrument_id in lowerLimitList and item.upper_limit != item.last_price:
+                        lowerLimitList.remove(item.instrument_id)
+
+            # 检查涨跌停合约的持仓
+            for position in pos:
+                if pos[position].instrument_id in lowerLimitList and pos[position].pos_long > 0:
+                    logger.warning(pos[position].instrument_id + ' 有在跌停的多仓！')
+                elif pos[position].instrument_id in upperLimitList and pos[position].pos_short > 0:
+                    logger.warning(pos[position].instrument_id + ' 有在涨停的空仓！')
+
+            # 检查涨跌停合约的挂单。
+            for order in orders:
+                if not orders[order].is_dead:
+                    if orders[order].instrument_id in lowerLimitList:
+                        logger.warning(orders[order].instrument_id + ' 有在跌停的挂单！')
+                    elif orders[order].instrument_id in upperLimitList:
+                        logger.warning(orders[order].instrument_id + ' 有在涨停的挂单！')
+
+
         if now.tm_hour == 15 or now.tm_hour == 23 or contral == 'q':
             broker.stop()  # 处理持仓信息的，将各个虚拟持仓情况写入csv
             logger.debug('stop running!')
             break
-
-        if not now.tm_min % 15:  # 当时间分钟数整除15时，也就是十五分钟运行一次
-            logger.info(str(pos))
 
     api.close()
 

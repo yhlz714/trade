@@ -19,9 +19,10 @@ class RealBroker(backtesting.Broker):
     继承pyalgotrade的基类，以实现和tqsdk交互
     """
 
-    def __init__(self, api: 'TqApi', position=None):
+    def __init__(self, api: 'TqApi', position=None, allTick=None, strategy=None):
         """
         :param strategy: 包含所有策略名称的list
+        strategy和alltick需要一起传，否则还是等于没有，需要重新读取
         """
         feed = RealFeed()
         super().__init__(10000, feed)
@@ -39,26 +40,30 @@ class RealBroker(backtesting.Broker):
         self.strategyNow = None  # 代表这个时候onbars运行的strategy，在RealBroker的实例中可以修改这个值，用来提示内部此时运行的策略
         self.cash = 0
         self.balence = 0
-        self.allTick = {}
+        if not allTick or not strategy:
+            self.allTick = {}
 
-        realAccount = pd.read_csv('currentAccount.csv')
-        f = open('strategytorun.txt')
-        temp = f.readlines()
-        f.close()
+            realAccount = pd.read_csv('currentAccount.csv')
+            f = open('strategytorun.txt')
+            temp = f.readlines()
+            f.close()
 
-        for item in temp:
-            item = eval(item)
-            # !!! 策略不可重名， 如需同策略不同参数，可以继承一个，然后换个名字。
-            self.strategy[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
-            for contract in item[1:]:
-                if contract[0] not in self.allTick:
-                    self.allTick[contract[0]] = self.api.get_quote(contract[0])
-                    # 如果是指数合约那么把对应的主力合约也订阅上。
-                    if 'KQ.i' in contract[0] and contract[0].replace('KQ.i', 'KQ.m') not in self.allTick:
-                        self.allTick[contract[0].replace('KQ.i', 'KQ.m')] = \
-                            self.api.get_quote(contract[0].replace('KQ.i', 'KQ.m'))
-                        self.allTick[self.allTick[contract[0].replace('KQ.i', 'KQ.m')].underlying_symbol] = \
-                            self.allTick[contract[0].replace('KQ.i', 'KQ.m')]
+            for item in temp:
+                item = eval(item)
+                # !!! 策略不可重名， 如需同策略不同参数，可以继承一个，然后换个名字。
+                self.strategy[item[0]] = item[1:]  # 将strategy to  run 中的策略对应的 名字和合约记录下来。
+                for contract in item[1:]:
+                    if contract[0] not in self.allTick:
+                        self.allTick[contract[0]] = self.api.get_quote(contract[0])
+                        # 如果是指数合约那么把对应的主力合约也订阅上。
+                        if 'KQ.i' in contract[0] and contract[0].replace('KQ.i', 'KQ.m') not in self.allTick:
+                            self.allTick[contract[0].replace('KQ.i', 'KQ.m')] = \
+                                self.api.get_quote(contract[0].replace('KQ.i', 'KQ.m'))
+                            self.allTick[self.allTick[contract[0].replace('KQ.i', 'KQ.m')].underlying_symbol] = \
+                                self.allTick[contract[0].replace('KQ.i', 'KQ.m')]
+        else:
+            self.allTick = allTick
+            self.strategy = strategy
 
         self.strategyAccount = {}  # 存储一个虚拟的分策略的账户信息
 
