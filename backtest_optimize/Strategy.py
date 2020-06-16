@@ -12,6 +12,7 @@ from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
 from pyalgotrade import broker
 from pyalgotrade.broker.backtesting import Broker
+from pyalgotrade.broker import fillstrategy
 import talib
 import pandas as pd
 import numpy as np
@@ -26,11 +27,14 @@ class YhlzStreategy(strategy.BacktestingStrategy):
     realBroker = ''
 
     def __init__(self, barFeed, cash=10000):
+
         if self.realTrade:
             super().__init__(barFeed, self.realBroker)
         else:
             temp = Broker(cash,barFeed)
             temp.setAllowNegativeCash(True)
+            fillstg = fillstrategy.DefaultStrategy(None)  # 设置一个不检查有成交量的fill strategy
+            temp.setFillStrategy(fillstg)
             super().__init__(barFeed, temp)
 
     def checkTransPosition(self):
@@ -371,8 +375,8 @@ class TurtleTrade(YhlzStreategy):
         :return:
         """
 
-        # quantity = self.equity
-        quantity = self.initialCash  # 测试, 固定资产开仓，不随资产增长，避免回测到后期钱太多的问题
+        quantity = self.equity
+        # quantity = self.initialCash  # 测试, 固定资产开仓，不随资产增长，避免回测到后期钱太多的问题
 
         KQFileName = self.context.categoryToFile[instrument]
 
@@ -380,7 +384,7 @@ class TurtleTrade(YhlzStreategy):
             self.generalTickInfo.loc[self.generalTickInfo['index_name'] == KQFileName, 'contract_multiplier'].iloc[0]
 
         # res = int(quantity / atr / 100 / KQmultiplier)  # 向下取整
-        res = int(quantity / atr / 20)  # 由于目前回测系统没有考虑合约乘数，不需要除以合约乘数
+        res = int(quantity / atr / 100)  # 由于目前回测系统没有考虑合约乘数，不需要除以合约乘数
 
         if res:
             return res

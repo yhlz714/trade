@@ -80,13 +80,13 @@ def Backtest():
     # plt.show()
 
     plt.plot(retAnalyzer.getCumulativeReturns().getDateTimes(), list(retAnalyzer.getCumulativeReturns()), color='r')
-    plt.show()
+    plt.show(block=False)
 
     print("Sharpe ratio: %.2f" % (sharpeRatioAnalyzer.getSharpeRatio(0.05)))
     print("Max. drawdown: %.2f %%" % (drawDownAnalyzer.getMaxDrawDown() * 100))
     # print("Value of Max. drawdown: %.2f " % -(drawDownAnalyzer.maxDrawDownValue))
     print("Longest drawdown duration: %s" % (drawDownAnalyzer.getLongestDrawDownDuration()))
-    tradeAnalyzer.all_trade.to_csv(str(time.time()) + '.csv')
+    tradeAnalyzer.all_trade.to_csv(str(time.time()) + 'backtest_result.csv')
 
     for key in Data.keys():
         Data[key]['volume'] = np.nan
@@ -123,7 +123,7 @@ class Context:
 if __name__ == '__main__':
     context = Context()
     context.categorys = ['rb', 'i',  'cu', 'j', 'm', 'SR', 'ru', 'TA', 'IF', 'IC',
-                         'au', 'ag', 'p', 'CF', 'ni', 'y', 'pp']  # 给定所有要回测的品种'T',
+                         'T', 'ag', 'p', 'CF', 'ni', 'y', 'pp']  # 给定所有要回测的品种'au',
     context.categoryToFile = {'rb': 'KQi@SHFErb',
                               'i': 'KQi@DCEi',
                               'cu': 'KQi@SHFEcu',
