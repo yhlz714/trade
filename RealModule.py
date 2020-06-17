@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 撤单后is_dead还是不为真。需要测试接口撤单后返回值is_dead为什么不为真。
+# TODO 重新测试，找到了不停下单的原因是因为撤单后订单挂掉需要等待几个wait_update().需要继续测试是否正常挂撤单。
 # TODO 下单后生成的虚拟订单没有关联到虚拟账户，在realBroker的update（）里面。
 import time
 import logging
@@ -36,6 +36,7 @@ class RealBroker(backtesting.Broker):
         self.orderQueue = []
         self.unfilledQueue = []
         self.cancelOrderQueue = []
+        self.reInsertQueue = []
         self.strategy = {}  # 存放所有的strategy
         self.strategyNow = None  # 代表这个时候onbars运行的strategy，在RealBroker的实例中可以修改这个值，用来提示内部此时运行的策略
         self.cash = 0
@@ -513,14 +514,31 @@ class RealBroker(backtesting.Broker):
                 for i in temp.realOrder:
                     if not i.is_dead:
                         self.api.cancel_order(i.order_id)
-                if temp.limit_price:
-                    # 重新下限价单
-                    self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                           temp.virContract, temp.open, type(self.strategyNow).__name__, price=None))
+                self.reInsertQueue.append(temp)
+
+        """------------------------等待交易所检查到撤单，让挂单已死再重新下单-----------------------------------------"""
+        # tqsdk需要过几个wait_update以后才能检测到撤单。
+        if self.reInsertQueue:
+            logger.debug('检查是否可以重下')
+            tempList = []
+            while self.reInsertQueue:
+                temp = self.reInsertQueue.pop()
+                if temp.is_dead:  # tqsdk确认了，我再重下。
+                    if temp.orderType == 'limit':
+                        # 重新下限价单
+                        logger.debug('重下限价单')
+                        self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
+                                               temp.virContract, temp.open, type(self.strategyNow).__name__, price=None))
+                    else:
+                        # 重新下单
+                        logger.debug('重下市价单')
+                        self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
+                                                            temp.virContract, temp.open, type(self.strategyNow).__name__))
                 else:
-                    # 重新下单
-                    self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                                        temp.virContract, temp.open, type(self.strategyNow).__name__))
+                    tempList.append(temp)
+            self.unfilledQueue = tempList
+            logger.debug(str(self.reInsertQueue))
+
         """------------------------------------------更新各个虚拟账户。------------------------------------------"""
         for item in self.strategy:  # 更新各个虚拟账户数据
             self.strategyAccount[item].update(self.allTick, self.posDict)

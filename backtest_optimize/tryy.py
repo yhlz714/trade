@@ -1,37 +1,27 @@
-import tensorflow as tf
-import numpy as np
+#!/usr/bin/env python
+#  -*- coding: utf-8 -*-
+import time
 
-#the function to create layer
-def add_layer(inputs,in_size,out_size,activation_function=None):
-    w = tf.Variable(tf.random_normal([in_size,out_size]))
-    b = tf.Variable(tf.zeros([1,out_size])+0.1)
-    f = tf.matmul(inputs,w) + b
-    if activation_function is None:
-        outputs = f
-    else:
-        outputs = activation_function(f)
-    return outputs
+from tqsdk import TqApi, TqAccount
 
-#create test data(as real data)
-x_data = np.linspace(-1,1,300,dtype=np.float32)[:,np.newaxis]
-noise = np.random.normal(0,0.05,x_data.shape)
-y_data = np.square(x_data)-0.5+noise
+api = TqApi(TqAccount('simnow', '133492', 'Yhlz0000'), web_gui=True)
+# 获得 m2005 的持仓引用，当持仓有变化时 position 中的字段会对应更新
+position = api.get_position("SHFE.rb2010")
+# 获得资金账户引用，当账户有变化时 account 中的字段会对应更新
+account = api.get_account()
+# 下单并返回委托单的引用，当该委托单有变化时 order 中的字段会对应更新
+order = api.insert_order(symbol="SHFE.rb2010", direction="BUY", offset="OPEN", volume=5, limit_price=3575)
+count = 0
+while True:
 
-#give tensorflow input placeholder
-xs = tf.placeholder(tf.float32,[None,1])
-ys = tf.placeholder(tf.float32,[None,1])
-l1 = add_layer(x_data,1,10,activation_function=tf.nn.relu)
-prediction = add_layer(l1,10,1,activation_function=None)
-
-loss = tf.reduce_mean(tf.reduce_sum(tf.square(y_data-prediction),reduction_indices=[1]))
-
-train = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
-
-init = tf.global_variables_initializer()
-sess = tf.Session()
-sess.run(init)
-
-for i in range(1000):
-    sess.run(train,feed_dict={xs:x_data,ys:y_data})
-    if(i % 50 == 0):
-        print(sess.run(loss,feed_dict={xs:x_data,ys:y_data}))
+    api.wait_update()
+    # if api.is_changing(order, ["status", "volume_orign", "volume_left"]):
+    #     print("单状态: %s, 已成交: %d 手" % (order.status, order.volume_orign - order.volume_left))
+    print(order.status)
+    if api.is_changing(position, "pos_long_today"):
+        print("今多头: %d 手" % (position.pos_long_today))
+    if api.is_changing(account, "available"):
+        print("可用资金: %.2f" % (account.available))
+    count += 1
+    if 50 < count < 52:
+        api.cancel_order(order)
