@@ -11,8 +11,9 @@ from pyalgotrade import strategy
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
 from pyalgotrade import broker
-from pyalgotrade.broker.backtesting import Broker
+from pyalgotrade.broker.backtesting import Broker, TradePercentage
 from pyalgotrade.broker import fillstrategy
+
 import talib
 import pandas as pd
 import numpy as np
@@ -67,9 +68,17 @@ class SMACrossOver(YhlzStreategy):
 
     def __init__(self, feed, instrument, context, dictOfDataDf):
         super(SMACrossOver, self).__init__(feed)
-        self.__instrument = instrument
+        temp = self.getBroker()
+        temp.setCommission(TradePercentage(0.0001))  # 单独设置手续费。
+        if isinstance(instrument, list):
+            self.__instrument = instrument[0]
+        elif isinstance(instrument, str):
+            self.__instrument = instrument
+        else:
+            raise Exception('不合法的instrument！')
+
         self.__position = None
-        self.prices = feed[instrument].getPriceDataSeries()
+        self.prices = feed[self.__instrument].getPriceDataSeries()
         # 这个策略只有一个品种，所以pop出来必然是那个。pop后这个键值对就不存在，不能取两次
         if self.realTrade:
             logger.debug('实盘')
@@ -80,7 +89,7 @@ class SMACrossOver(YhlzStreategy):
             length = len(dictOfDataDf[list(dictOfDataDf.keys())[0]])  # 拿出第一个df的长度
             self.sma = ma.SMA(self.prices, 108, maxLen=length)
             self.sma1 = ma.SMA(self.prices, 694, maxLen=length)
-            self.tech = {instrument: {'sma short': self.sma, 'sma long': self.sma1}}
+            self.tech = {self.__instrument: {'sma short': self.sma, 'sma long': self.sma1}}
 
     def getSMA(self):
         return self.sma
@@ -104,8 +113,8 @@ class SMACrossOver(YhlzStreategy):
 
     def onBars(self, bars):
         
-        logger.debug('onbars')
-        quantity = 100
+        # logger.debug('onbars')
+        quantity = 10
         if self.realTrade:
             self.sma = talib.SMA(self.prices.values, 10)
             self.sma1 = talib.SMA(self.prices.values, 20)
@@ -410,6 +419,7 @@ class SmaTurtleTrade(YhlzStreategy):
         :parm dictOfDataDf 包含所有数据的dict，其中每一个category是一个df
         """
         super(SmaTurtleTrade, self).__init__(feed, 10000)
+
         self.feed = feed
         if isinstance(instruments, list):  # 对于不是多个品种的情况，进行判断，如果是字符串，用list包裹在存储
             self.instruments = instruments

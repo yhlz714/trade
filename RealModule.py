@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 还是不会撤单
+# TODO 撤单后is_dead还是不为真。需要测试接口撤单后返回值is_dead为什么不为真。
 # TODO 下单后生成的虚拟订单没有关联到虚拟账户，在realBroker的update（）里面。
 import time
 import logging
@@ -116,17 +116,17 @@ class RealBroker(backtesting.Broker):
         :param order: The order to submit.
         :type order: :class:`Order`.
         """
-        self.strategyAccount[self.strategyNow].addOrder(order)  # 给虚拟账户更新订单流
+        self.strategyAccount[type(self.strategyNow).__name__].addOrder(order)  # 给虚拟账户更新订单流
         self.orderQueue.append(order)  # 给实际订单处理序列增加订单流。
 
-    def creatOrder(self, direction, volume, contract, open, strategyName=None, price=None):
+    def creatOrder(self, direction, volume, contract, open, strategyName=None, price=None, orderType='Market'):
         """创建新的订单类"""
         if strategyName==None:
             strategyName = type(self.strategyNow).__name__  # 获取实例的类名
         logger.debug('创建订单->' + str(direction) + str(volume) + str(contract) + str(open) + str(price))
 
-        if price==None:  # 市价单
-            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new')
+        if orderType == 'Market':  # 市价单
+            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new', orderType=orderType)
         else:
             return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new', price=price)
 
@@ -178,19 +178,19 @@ class RealBroker(backtesting.Broker):
         if action == Action.BUY:
             if not limitPrice:  # 没有提供价格的限价单。
                 limitPrice = self.allTick[instrument].ask_price1-10
-            return self.creatOrder("BUY", quantity, instrument, open=True, price=limitPrice)
+            return self.creatOrder("BUY", quantity, instrument, open=True, price=limitPrice, orderType='Limit')
         elif action == Action.SELL_SHORT:
             if not limitPrice:  # 没有提供价格的限价单。
                 limitPrice = self.allTick[instrument].bid_price1+10
-            return self.creatOrder("SELL", quantity, instrument, open=True, price=limitPrice)
+            return self.creatOrder("SELL", quantity, instrument, open=True, price=limitPrice, orderType='Limit')
         elif action == Action.SELL:
             if not limitPrice:  # 没有提供价格的限价单。
                 limitPrice = self.allTick[instrument].bid_price1+10
-            return self.creatOrder("SELL", quantity, instrument, open=False, price=limitPrice)
+            return self.creatOrder("SELL", quantity, instrument, open=False, price=limitPrice, orderType='Limit')
         elif action == Action.BUY_TO_COVER:
             if not limitPrice:  # 没有提供价格的限价单。
                 limitPrice = self.allTick[instrument].ask_price1-10
-            return self.creatOrder("BUY", quantity, instrument, open=False, price=limitPrice)
+            return self.creatOrder("BUY", quantity, instrument, open=False, price=limitPrice, orderType='Limit')
         else:
             raise Exception('unkown action!')
 
@@ -281,7 +281,7 @@ class RealBroker(backtesting.Broker):
                 if not order.virContract in groupbyOrder:  # 还没有这个合约
                     groupbyOrder[order.virContract] = {'long': [], 'short': [], 'other':[]}
                     # 初始化为dict Of list , 分为多空两边, 限价单直接进入other 不予对冲
-                if order.price:  # 限价单
+                if order.type == 'Limit':  # 限价单
                     groupbyOrder[order.virContract]['other'].append(order)
                 else:
                     if order.virDirection == 'BUY':  # 分买卖两边分类。
@@ -482,17 +482,19 @@ class RealBroker(backtesting.Broker):
                 if not temp.is_dead:  # 如果dead了就不在append回来了，直接不管了。
                     # if not temp.insert_date_time:
                     #     temp.insert_date_time = time.time()
-                    logger.debug('有单未死')
+                    logger.debug('有单未死,单号是：')
+                    logger.debug(str(temp.id))
+                    logger.debug('挂单时间是：')
                     logger.debug(temp.insert_date_time)
                     if time.time() - temp.insert_date_time > 5:
                         # 大于5秒，且价格不是最优撤单
                         logger.debug('超时未成交！')
                         if temp.direction == 'BUY':
-                            if temp.limit_price != self.allTick[temp.exchange_id + '.' + temp.instrument_id].bid_price1:
+                            if temp.limit_price != self.allTick[temp.instrument_id].bid_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
                         else:
-                            if temp.limit_price != self.allTick[temp.exchange_id + '.' + temp.instrument_id].ask_price1:
+                            if temp.limit_price != self.allTick[temp.instrument_id].ask_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
                     tempList.append(temp)
@@ -514,7 +516,7 @@ class RealBroker(backtesting.Broker):
                 if temp.limit_price:
                     # 重新下限价单
                     self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                           temp.virContract, temp.open, type(self.strategyNow).__name__, price=temp.limit_price))
+                                           temp.virContract, temp.open, type(self.strategyNow).__name__, price=None))
                 else:
                     # 重新下单
                     self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
@@ -622,9 +624,9 @@ class virtualOrder:
     """
     模拟的订单类， 因为虚拟账户有时候是几个虚拟单发成同一个实盘单，所以要重写。
     """
-    count = 0  # 用来记录当天创建了多少订单，以确定每个实例不会出现重复的id
+    count = [0]  # 用来记录当天创建了多少订单，以确定每个实例不会出现重复的id
 
-    def __init__(self, direction, volume, contract, open, strategyName, oldOrNew='old', price=None):
+    def __init__(self, direction, volume, contract, open, strategyName, oldOrNew='old', price=None, orderType='Market'):
         """
 
         :param direction:
@@ -639,20 +641,21 @@ class virtualOrder:
         self.open = open
         self.oldOrNew = oldOrNew
         self.time = time.time()  # 记录创建时间
-        self.id = self.count
+        self.id = self.count[0]
         self.__volumeLeft = volume  # 已成交数量
-        self.__is_dead = False
-        self.count += 1
+        self.__is_dead = True
+        self.count[0] += 1
         self.strategyName = strategyName
+        self.orderType = orderType
 
         self.realOrder = []
         self.price = price
 
     def __str__(self):
         return 'direction: {}, volume: {}, volumeLeft: {}, contract: {}, open: {}, oldOrNew：{}, time: {}, ' \
-               '.isdead: {}, strategyName: {}'.format(self.virDirection, self.virVolume, self.volumeLeft,
+               '.isdead: {}, strategyName: {}, countNum: {}'.format(self.virDirection, self.virVolume, self.volumeLeft,
                                                       self.virContract, self.open, self.oldOrNew, self.time,
-                                                      self.is_dead, self.strategyName)
+                                                      self.is_dead, self.strategyName, self.id)
 
     def attach(self, order: 'tqsdk order'):
         """
@@ -666,6 +669,8 @@ class virtualOrder:
     def is_dead(self):
         #  如果全部真实单都死了，虚拟单才会死
         for item in self.realOrder:
+            logger.debug('真实订单的情况：')
+            logger.debug(str(item.is_dead))
             if not item.is_dead:
                 self.__is_dead = False
         return self.__is_dead
@@ -697,6 +702,7 @@ class virtualOrder:
     @property
     def volumeLeft(self):
         if self.realOrder:
+            self.__volumeLeft = 0
             for item in self.realOrder:
                 self.__volumeLeft += item.volume_left
         return self.__volumeLeft

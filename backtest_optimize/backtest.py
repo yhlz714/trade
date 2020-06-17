@@ -3,6 +3,7 @@ YHLZ的回测系统基于pyalgotrade
 """
 
 import threading
+import logging
 
 from pyalgotrade.stratanalyzer import sharpe
 from pyalgotrade.stratanalyzer import drawdown
@@ -14,6 +15,12 @@ register_matplotlib_converters()
 
 from backtest_optimize.Yhlz_Module import *
 from backtest_optimize.Strategy import *
+
+logger = logging.getLogger('Yhlz')
+h = logging.StreamHandler()
+h.setLevel(logging.DEBUG)
+logger.addHandler(h)
+logger.setLevel(logging.DEBUG)
 
 
 def delay_deal():
@@ -80,13 +87,13 @@ def Backtest():
     # plt.show()
 
     plt.plot(retAnalyzer.getCumulativeReturns().getDateTimes(), list(retAnalyzer.getCumulativeReturns()), color='r')
-    plt.show(block=False)
+    
 
     print("Sharpe ratio: %.2f" % (sharpeRatioAnalyzer.getSharpeRatio(0.05)))
     print("Max. drawdown: %.2f %%" % (drawDownAnalyzer.getMaxDrawDown() * 100))
     # print("Value of Max. drawdown: %.2f " % -(drawDownAnalyzer.maxDrawDownValue))
     print("Longest drawdown duration: %s" % (drawDownAnalyzer.getLongestDrawDownDuration()))
-    tradeAnalyzer.all_trade.to_csv(str(time.time()) + 'backtest_result.csv')
+    tradeAnalyzer.all_trade.to_csv(str(time.time()) + context.stg.__name__ + '_backtest_result.csv')
 
     for key in Data.keys():
         Data[key]['volume'] = np.nan
@@ -105,6 +112,7 @@ def Backtest():
         Data[tradeAnalyzer.all_trade.loc[i, 'instrument']] = tempDF
     context.all_trade = tradeAnalyzer.all_trade
     context.backtectDone = True
+    plt.show()
     print('done')
 
 
@@ -122,8 +130,8 @@ class Context:
 
 if __name__ == '__main__':
     context = Context()
-    context.categorys = ['rb', 'i',  'cu', 'j', 'm', 'SR', 'ru', 'TA', 'IF', 'IC',
-                         'T', 'ag', 'p', 'CF', 'ni', 'y', 'pp']  # 给定所有要回测的品种'au',
+    context.categorys = ['rb']#, 'i',  'cu', 'j', 'm', 'SR', 'ru', 'TA', 'IF', 'IC',
+                         # 'T', 'ag', 'p', 'CF', 'ni', 'y', 'pp']  # 给定所有要回测的品种'au',
     context.categoryToFile = {'rb': 'KQi@SHFErb',
                               'i': 'KQi@DCEi',
                               'cu': 'KQi@SHFEcu',
@@ -144,13 +152,13 @@ if __name__ == '__main__':
                               'T': 'KQi@CFFEXT',
                               'pp': 'KQi@DCEpp'
                               }  # 品种和文件名转换dict
-    context.stg = TurtleTrade
+    context.stg = SMACrossOver#TurtleTrade
     context.backtectDone = False
     print(time.ctime())
 
     # 读取以及处理数据
     data = DATA(context)
-    Data, feed = data.feed(True)
+    Data, feed = data.feed()
 
     # 或许可以读取csv文件然后，直接一次性导入各种设置。这里也有，可用于修改少数，这里的优先级高于csv文件。
     context.root = Tk()

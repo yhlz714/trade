@@ -54,12 +54,13 @@ mail_handler = SMTPHandler(
 mail_handler.setLevel(logging.INFO)
 mail_handler.setFormatter(fm)
 
-logger.addHandler(mail_handler)
+# logger.addHandler(mail_handler)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(fh)
 logger.propagate = False
 
-try:
+# try:
+if __name__ == '__main__':
     # logging.basicConfig(filename='log.txt', filemode='a', level=logging.DEBUG,
     #                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.debug('This is yhlz\'s trading server,now started!\n')
@@ -169,33 +170,33 @@ try:
 
         # 检测是否接近涨跌停预警
         for item in allTick:
-            if not item.instrument_id in upList :
-                if (item.upper_limit - item.last_price) / item.last_price < 0.01:
-                    logger.warning(item.instrument_id + ' 接近涨停')
-                    upList.append(item.instrument_id)
-                    if item.upper_limit == item.last_price:
-                        upperLimitList.append(item.instrument_id)
+            if not allTick[item].instrument_id in upList :
+                if (allTick[item].upper_limit - allTick[item].last_price) / allTick[item].last_price < 0.01:
+                    logger.warning(allTick[item].instrument_id + ' 接近涨停')
+                    upList.append(allTick[item].instrument_id)
+                    if allTick[item].upper_limit == allTick[item].last_price:
+                        upperLimitList.append(allTick[item].instrument_id)
 
-            elif not item.instrument_id in lowList:
-                if (item.last_price - item.lower_limit ) / item.last_price < 0.01:
-                    logger.warning(item.instrument_id + ' 接近跌停')
-                    lowList.append(item.instrument_id)
-                    if item.lower_limit == item.last_price:
-                        lowerLimitList.append(item.instrument_id)
+            elif not allTick[item].instrument_id in lowList:
+                if (allTick[item].last_price - allTick[item].lower_limit ) / allTick[item].last_price < 0.01:
+                    logger.warning(allTick[item].instrument_id + ' 接近跌停')
+                    lowList.append(allTick[item].instrument_id)
+                    if allTick[item].lower_limit == allTick[item].last_price:
+                        lowerLimitList.append(allTick[item].instrument_id)
 
-            elif item.instrument_id in upList:
-                if (item.upper_limit - item.last_price) / item.last_price > 0.01:
-                    logger.warning(item.instrument_id + ' 离开涨停附近')
-                    upList.remove(item.instrument_id)
-                    if item.instrument_id in upperLimitList and item.upper_limit != item.last_price:
-                        upperLimitList.remove(item.instrument_id)
+            elif allTick[item].instrument_id in upList:
+                if (allTick[item].upper_limit - allTick[item].last_price) / allTick[item].last_price > 0.01:
+                    logger.warning(allTick[item].instrument_id + ' 离开涨停附近')
+                    upList.remove(allTick[item].instrument_id)
+                    if allTick[item].instrument_id in upperLimitList and allTick[item].upper_limit != allTick[item].last_price:
+                        upperLimitList.remove(allTick[item].instrument_id)
 
-            elif item.instrument_id in lowList:
-                if (item.last_price - item.lower_limit) / item.last_price > 0.01:
-                    logger.warning(item.instrument_id + ' 离开跌停附近')
-                    lowList.remove(item.instrument_id)
-                    if item.instrument_id in lowerLimitList and item.upper_limit != item.last_price:
-                        lowerLimitList.remove(item.instrument_id)
+            elif allTick[item].instrument_id in lowList:
+                if (allTick[item].last_price - allTick[item].lower_limit) / allTick[item].last_price > 0.01:
+                    logger.warning(allTick[item].instrument_id + ' 离开跌停附近')
+                    lowList.remove(allTick[item].instrument_id)
+                    if allTick[item].instrument_id in lowerLimitList and allTick[item].upper_limit != allTick[item].last_price:
+                        lowerLimitList.remove(allTick[item].instrument_id)
 
             # 检查涨跌停合约的持仓
             for position in pos:
@@ -220,5 +221,5 @@ try:
 
     api.close()
 
-except Exception as e:
-    logger.error('运行出现问题请立即检查！\n' + traceback.format_exc())
+# except Exception as e:
+#     logger.error('运行出现问题请立即检查！\n' + traceback.format_exc())
