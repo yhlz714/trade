@@ -127,9 +127,10 @@ class RealBroker(backtesting.Broker):
         logger.debug('创建订单->' + str(direction) + str(volume) + str(contract) + str(open) + str(price))
 
         if orderType == 'Market':  # 市价单
-            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new', orderType=orderType)
+            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new')
         else:
-            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new', price=price)
+            return virtualOrder(direction, volume, contract, open, strategyName, oldOrNew='new', price=price,
+                                orderType=orderType)
 
     def createMarketOrder(self, action, instrument, quantity, strategyNmae=None, onClose=False):
         """Creates a Market order.
@@ -282,7 +283,7 @@ class RealBroker(backtesting.Broker):
                 if not order.virContract in groupbyOrder:  # 还没有这个合约
                     groupbyOrder[order.virContract] = {'long': [], 'short': [], 'other':[]}
                     # 初始化为dict Of list , 分为多空两边, 限价单直接进入other 不予对冲
-                if order.type == 'Limit':  # 限价单
+                if order.orderType == 'Limit':  # 限价单
                     groupbyOrder[order.virContract]['other'].append(order)
                 else:
                     if order.virDirection == 'BUY':  # 分买卖两边分类。
@@ -474,7 +475,7 @@ class RealBroker(backtesting.Broker):
 
             self.orderQueue = []  # 重新归零。
 
-        """-------------------------------------未成交处理。先暂时按照等待10秒撤单处理。-----------------------------"""
+        """-------------------------------------未成交处理。先暂时按照等待5秒撤单处理。-----------------------------"""
         if self.unfilledQueue:
             logger.debug('处理未成交的单')
             tempList = []
@@ -494,16 +495,21 @@ class RealBroker(backtesting.Broker):
                             if temp.limit_price != self.allTick[temp.instrument_id].bid_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
+                                continue
+                                # 只要被撤单queue接受了就不在保留在未成交queue，避免由于撤单状态返回延迟而导致此处又觉得这个单
+                                # 需要撤，于是重新添加到撤单queue中，导致同一个单被复制很多次，下面的continue一样。
                         else:
                             if temp.limit_price != self.allTick[temp.instrument_id].ask_price1:
                                 self.cancelOrderQueue.append(temp)
                                 logger.debug('要撤' + str(temp))
+                                continue
                     tempList.append(temp)
-                else:  # 此单已经完全成交了。给手机发邮件。
-                    logger.debug('完全成交')
+                else:  # 此单已经被撤了，或者完全成交了。
+                    logger.debug('完成了，即被撤了，或者完全成交了')
                     logger.info(str(temp))
 
             self.unfilledQueue = tempList
+            logger.debug('unfilled queue 的情况是：')
             logger.debug(str(self.unfilledQueue))
         """--------------------------------------------撤单--------------------------------------------------------"""
         if self.cancelOrderQueue:  # 撤单处理。
@@ -537,6 +543,7 @@ class RealBroker(backtesting.Broker):
                 else:
                     tempList.append(temp)
             self.unfilledQueue = tempList
+            logger.debug('需要检查是否重下的queue是：')
             logger.debug(str(self.reInsertQueue))
 
         """------------------------------------------更新各个虚拟账户。------------------------------------------"""
@@ -609,7 +616,9 @@ class _virtualAccountHelp:
         # 处理订单的更新。更新position account 就是 position
         for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
             logger.debug('处理订单变化')
-            if order.is_dead:
+            if order.is_dead and order.volume != order.volumeLeft:
+                # 检查挂单量是否和剩余量相等，避免完全未成交的撤单被用来更新持仓导致出现问题。 比如会被创建一个持仓数量为0的持
+                # 仓记录
                 logger.debug('有完成的订单')
                 self.orders.remove(order)
                 tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x: x)
@@ -617,10 +626,10 @@ class _virtualAccountHelp:
                 if tempStr in tempTrade:  # 说明有这个持仓
                     logger.debug('修改旧持仓。')
                     if order.open:
-                        tempTrade['volume'] += order.volume  # 将这个数量加上即可
+                        tempTrade['volume'] += (order.volume - order.volumeLeft)  # 将成交的数量加上即可
                     else:  # 平仓
                         if order.volume < tempTrade['volume']:
-                            tempTrade['volume'] -= order.volume
+                            tempTrade['volume'] -= (order.volume - order.volumeLeft)
                         elif order.volume == tempTrade['volume']:
                             tempTrade.drop(tempStr, inplace=True)
                         else:
@@ -631,7 +640,7 @@ class _virtualAccountHelp:
                 else:
                     logger.debug('创建新持仓')
                     self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
-                        [order.direction, order.volume, order.contract]
+                        [order.virDirection, order.virVolume - order.volumeLeft, order.virContract]
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
         logger.debug('更新完订单以后的账户情况是：')
@@ -661,7 +670,7 @@ class virtualOrder:
         self.time = time.time()  # 记录创建时间
         self.id = self.count[0]
         self.__volumeLeft = volume  # 已成交数量
-        self.__is_dead = True
+        self.__is_dead = False
         self.count[0] += 1
         self.strategyName = strategyName
         self.orderType = orderType
@@ -691,6 +700,9 @@ class virtualOrder:
             logger.debug(str(item.is_dead))
             if not item.is_dead:
                 self.__is_dead = False
+            else:
+                self.__is_dead = True
+        logger.debug('最终订单情况是：' + str(self.__is_dead))
         return self.__is_dead
 
     @is_dead.setter

@@ -623,15 +623,15 @@ class RandomOrderStratey(YhlzStreategy):
         self.__instrument = instrument
 
     def onBars(self, bars):
-        num = randint(0, 3)
+        num = randint(0, 1)
         if num == 0:
             direction = broker.Order.Action.BUY
         elif num == 1:
             direction = broker.Order.Action.SELL_SHORT
-        elif num == 2:
-            direction = broker.Order.Action.SELL
-        elif num == 3:
-            direction = broker.Order.Action.BUY_TO_COVER
+        # elif num == 2:
+        #     direction = broker.Order.Action.SELL
+        # elif num == 3:
+        #     direction = broker.Order.Action.BUY_TO_COVER
 
         a=self.getBroker().createLimitOrder(direction, self.transInstrument(self.__instrument), randint(1, 10))
         self.getBroker().submitOrder(a)
