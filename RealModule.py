@@ -1,6 +1,5 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 重新测试，找到了不停下单的原因是因为撤单后订单挂掉需要等待几个wait_update().需要继续测试是否正常挂撤单。
 # TODO 下单后生成的虚拟订单没有关联到虚拟账户，在realBroker的update（）里面。
 import time
 import logging
@@ -542,7 +541,7 @@ class RealBroker(backtesting.Broker):
                                                             temp.virContract, temp.open, type(self.strategyNow).__name__))
                 else:
                     tempList.append(temp)
-            self.unfilledQueue = tempList
+            self.reInsertQueue = tempList
             logger.debug('需要检查是否重下的queue是：')
             logger.debug(str(self.reInsertQueue))
 
@@ -616,7 +615,7 @@ class _virtualAccountHelp:
         # 处理订单的更新。更新position account 就是 position
         for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
             logger.debug('处理订单变化')
-            if order.is_dead and order.volume != order.volumeLeft:
+            if order.is_dead and order.virVolume != order.volumeLeft:
                 # 检查挂单量是否和剩余量相等，避免完全未成交的撤单被用来更新持仓导致出现问题。 比如会被创建一个持仓数量为0的持
                 # 仓记录
                 logger.debug('有完成的订单')
