@@ -61,8 +61,6 @@ logger.propagate = False
 
 # try:
 if __name__ == '__main__':
-    # logging.basicConfig(filename='log.txt', filemode='a', level=logging.DEBUG,
-    #                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.debug('This is yhlz\'s trading server,now started!\n')
 
     # 定义常量
@@ -222,4 +220,5 @@ if __name__ == '__main__':
     api.close()
 
 # except Exception as e:
+#     broker.stop()
 #     logger.error('运行出现问题请立即检查！\n' + traceback.format_exc())

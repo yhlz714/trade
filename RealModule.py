@@ -10,7 +10,8 @@ from pyalgotrade.barfeed import csvfeed
 from pyalgotrade.bar import Frequency
 from tqsdk import TqApi
 import pandas as pd
-pd.set_option('display.max_columns', None)
+pd.set_option('display.max_columns', None)  # dataframe 在专为字符串的时候不要用省略号
+pd.set_option('display.width',1000)  # 打印的一行的宽度为1000， 避免因为设置的不够宽而换行。
 logger = logging.getLogger('Yhlz')
 
 class RealBroker(backtesting.Broker):
@@ -529,16 +530,18 @@ class RealBroker(backtesting.Broker):
             while self.reInsertQueue:
                 temp = self.reInsertQueue.pop()
                 if temp.is_dead:  # tqsdk确认了，我再重下。
-                    if temp.orderType == 'limit':
+                    if temp.orderType == 'Limit':
                         # 重新下限价单
                         logger.debug('重下限价单')
                         self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
                                                temp.virContract, temp.open, type(self.strategyNow).__name__, price=None))
-                    else:
+                    elif temp.orderType == 'Market':
                         # 重新下单
                         logger.debug('重下市价单')
                         self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
                                                             temp.virContract, temp.open, type(self.strategyNow).__name__))
+                    else:
+                        logger.error('重新下单的类型有问题，请检查！')
                 else:
                     tempList.append(temp)
             self.reInsertQueue = tempList
@@ -695,13 +698,13 @@ class virtualOrder:
     def is_dead(self):
         #  如果全部真实单都死了，虚拟单才会死
         for item in self.realOrder:
-            logger.debug('真实订单的情况：')
-            logger.debug(str(item.is_dead))
+            # logger.debug('真实订单的情况：')
+            # logger.debug(str(item.is_dead))
             if not item.is_dead:
                 self.__is_dead = False
             else:
                 self.__is_dead = True
-        logger.debug('最终订单情况是：' + str(self.__is_dead))
+        # logger.debug('最终订单情况是：' + str(self.__is_dead))
         return self.__is_dead
 
     @is_dead.setter
