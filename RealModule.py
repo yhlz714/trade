@@ -1,6 +1,7 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 下单后生成的虚拟订单没有关联到虚拟账户，在realBroker的update（）里面。
+# TODO 上期所的平今要closeToday，一边平一边开的复合单要加上判断今昨仓的语句
+# TODO 虚拟账户在order成交的时候会有update内更新的判断，但是虚拟账户维护的dataframe还是没有相应的结果。
 import time
 import logging
 
@@ -534,12 +535,14 @@ class RealBroker(backtesting.Broker):
                         # 重新下限价单
                         logger.debug('重下限价单')
                         self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                               temp.virContract, temp.open, type(self.strategyNow).__name__, price=None))
+                                               temp.virContract, temp.open, type(self.strategyNow).__name__, price=None,
+                                                            oldOrNew='new', orderType='Limit'))
                     elif temp.orderType == 'Market':
                         # 重新下单
                         logger.debug('重下市价单')
                         self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                                            temp.virContract, temp.open, type(self.strategyNow).__name__))
+                                                            temp.virContract, temp.open, type(self.strategyNow).__name__,
+                                                            oldOrNew='new'))
                     else:
                         logger.error('重新下单的类型有问题，请检查！')
                 else:
