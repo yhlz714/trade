@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 上期所的平今要closeToday，一边平一边开的复合单要加上判断今昨仓的语句
+# TODO 全部平仓都分了today和非today。要测试看非上期的能不能用closetoday。
 # TODO 虚拟账户在order成交的时候会有update内更新的判断，但是虚拟账户维护的dataframe还是没有相应的结果。
 import time
 import logging
@@ -18,6 +18,7 @@ logger = logging.getLogger('Yhlz')
 class RealBroker(backtesting.Broker):
     """
     继承pyalgotrade的基类，以实现和tqsdk交互
+    还需实现根据配置文件来决定不同品种是平今还是平昨之类的事情。
     """
 
     def __init__(self, api: 'TqApi', position=None, allTick=None, strategy=None):
@@ -328,10 +329,12 @@ class RealBroker(backtesting.Broker):
 
             for item in groupbyOrder:  # 进行下单
                 pos = self.posDict.get(item, None)
-                if pos:
+                if pos:  # 我自己的交易broker不会让同一个合约上同时有多空仓持仓的出现。这是不合理的。
                     availablePos = pos.pos_long - pos.pos_short
+                    availablePosToday = pos.pos_long_today - pos.pos_short_today
                 else:
                     availablePos = 0
+                    availablePosToday = 0
 
                 if groupbyOrder[item]['long']:
                     for order in groupbyOrder[item]['long']:
@@ -343,14 +346,29 @@ class RealBroker(backtesting.Broker):
                                                         self.allTick[order.virContract]['upper_limit'])
                             order.attach(res)
                             self.unfilledQueue.append(order)
-                            availablePos -= order.volumeLeft
+                            # availablePos -= order.volumeLeft
                         elif availablePos < 0:
-                            if abs(availablePos) > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
+                            if abs(availablePos) >= order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
                                 logger.debug('下单2')
                                 logger.info(str(order))
-                                res = self.api.insert_order(order.contract, order.direction,
-                                                            'CLOSE', order.volumeLeft,
+                                if abs(availablePosToday) >= order.volumeLeft:
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                            'CLOSETODAY', order.volumeLeft,
                                                             self.allTick[order.virContract]['upper_limit'])
+                                    availablePosToday += order.volumeLeft
+
+                                elif abs(availablePosToday) < order.volumeLeft:  # 现在默认先平今，再平昨。
+                                    if availablePosToday:  # 如果有今仓就先平今。
+                                        res1 = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSETODAY', abs(availablePosToday),
+                                                                self.allTick[order.virContract]['upper_limit'])
+                                        order.attach(res1)
+
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSE', order.volumeLeft - abs(availablePosToday),
+                                                                self.allTick[order.virContract]['upper_limit'])
+                                    availablePosToday = 0
+
 
                                 order.attach(res)
                                 self.unfilledQueue.append(order)
@@ -358,15 +376,25 @@ class RealBroker(backtesting.Broker):
                             else:  # 先平再开
                                 logger.debug('下单3')
                                 logger.info(str(order))
-                                res = self.api.insert_order(order.contract, order.direction,
-                                                            'CLOSE', abs(availablePos),
-                                                            self.allTick[order.virContract]['upper_limit'])
+
+                                if availablePosToday:  # 如果有今仓，就先平今仓
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSETODAY', abs(availablePosToday),
+                                                                self.allTick[order.virContract]['upper_limit'])
+                                    order.attach(res)
+                                # 平完了再来平昨仓
                                 res1 = self.api.insert_order(order.contract, order.direction,
+                                                                 'CLOSE', abs(availablePos) - abs(availablePosToday),
+                                                                 self.allTick[order.virContract]['upper_limit'])
+
+                                # 最后来开仓
+                                res2 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['upper_limit'])
-                                order.attach(res)
                                 order.attach(res1)
+                                order.attach(res2)
                                 self.unfilledQueue.append(order)
+                                availablePosToday = 0
                                 availablePos = 0
 
                 elif groupbyOrder[item]['short']:
@@ -379,29 +407,55 @@ class RealBroker(backtesting.Broker):
                                                         self.allTick[order.virContract]['lower_limit'])
                             order.attach(res)
                             self.unfilledQueue.append(order)
-                            availablePos += order.volumeLeft
+                            # availablePos += order.volumeLeft
                         elif availablePos > 0:
-                            if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
+                            if availablePos >= order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
                                 logger.debug('下单5')
                                 logger.info(str(order))
-                                res = self.api.insert_order(order.contract, order.direction,
-                                                            'CLOSE', order.volumeLeft,
-                                                            self.allTick[order.virContract]['lower_limit'])
+
+                                if availablePosToday >= order.volumeLeft:  #  今仓大于要交易，直接平
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSETODAY', order.volumeLeft,
+                                                                self.allTick[order.virContract]['lower_limit'])
+                                    availablePosToday -= order.volumeLeft
+
+                                elif availablePosToday < order.volumeLeft:  # 现在默认先平今，再平昨。
+                                    if availablePosToday:  # 如果有今仓就先平今。
+                                        res1 = self.api.insert_order(order.contract, order.direction,
+                                                                     'CLOSETODAY', abs(availablePosToday),
+                                                                     self.allTick[order.virContract]['lower_limit'])
+                                        order.attach(res1)
+
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSE', order.volumeLeft - abs(availablePosToday),
+                                                                self.allTick[order.virContract]['lower_limit'])
+                                    availablePosToday = 0
+
                                 order.attach(res)
                                 self.unfilledQueue.append(order)
                                 availablePos -= order.volumeLeft
+
                             else:
                                 logger.debug('下单6')
                                 logger.info(str(order))
-                                res = self.api.insert_order(order.contract, order.direction,
-                                                            'CLOSE', availablePos,
-                                                            self.allTick[order.virContract]['lower_limit'])
+                                if availablePosToday:  # 如果有今仓，就先平今仓
+                                    res = self.api.insert_order(order.contract, order.direction,
+                                                                'CLOSETODAY', abs(availablePosToday),
+                                                                self.allTick[order.virContract]['lower_limit'])
+                                    order.attach(res)
+                                # 平完了再来平昨仓
                                 res1 = self.api.insert_order(order.contract, order.direction,
-                                                             'OPEN', order.volumeLeft - availablePos,
+                                                             'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                              self.allTick[order.virContract]['lower_limit'])
-                                order.attach(res)
+
+                                # 最后来开仓
+                                res2 = self.api.insert_order(order.contract, order.direction,
+                                                             'OPEN', order.volumeLeft - abs(availablePos),
+                                                             self.allTick[order.virContract]['lower_limit'])
                                 order.attach(res1)
+                                order.attach(res2)
                                 self.unfilledQueue.append(order)
+                                availablePosToday = 0
                                 availablePos = 0
 
                 if groupbyOrder[item]['other']:
@@ -415,33 +469,58 @@ class RealBroker(backtesting.Broker):
                                                             order.price)
                                 order.attach(res)
                                 self.unfilledQueue.append(order)
-                                availablePos += order.volumeLeft
+                                # availablePos += order.volumeLeft
                             elif availablePos > 0:
                                 if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
                                     logger.debug('下单8')
                                     logger.info(str(order))
-                                    res = self.api.insert_order(order.contract, order.direction,
-                                                                'CLOSE', order.volumeLeft,
-                                                                order.price)
+
+                                    if availablePosToday >= order.volumeLeft:  # 今仓大于要交易，直接平
+                                        res = self.api.insert_order(order.contract, order.direction,
+                                                                    'CLOSETODAY', order.volumeLeft,
+                                                                    order.price)
+                                        availablePosToday -= order.volumeLeft
+
+                                    elif availablePosToday < order.volumeLeft:  # 现在默认先平今，再平昨。
+                                        if availablePosToday:  # 如果有今仓就先平今。
+                                            res1 = self.api.insert_order(order.contract, order.direction,
+                                                                         'CLOSETODAY', abs(availablePosToday),
+                                                                         order.price)
+                                            order.attach(res1)
+
+                                        res = self.api.insert_order(order.contract, order.direction,
+                                                                    'CLOSE', order.volumeLeft - abs(availablePosToday),
+                                                                    order.price)
+                                        availablePosToday = 0
+
                                     order.attach(res)
                                     self.unfilledQueue.append(order)
                                     availablePos -= order.volumeLeft
                                 else:
                                     logger.debug('下单9')
                                     logger.info(str(order))
-                                    res = self.api.insert_order(order.contract, order.direction,
-                                                                'CLOSE', availablePos,
-                                                                order.price)
+                                    if availablePosToday:  # 如果有今仓，就先平今仓
+                                        res = self.api.insert_order(order.contract, order.direction,
+                                                                    'CLOSETODAY', abs(availablePosToday),
+                                                                    order.price)
+                                        order.attach(res)
+                                    # 平完了再来平昨仓
                                     res1 = self.api.insert_order(order.contract, order.direction,
-                                                                 'OPEN', order.volumeLeft - availablePos,
+                                                                 'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  order.price)
-                                    order.attach(res)
+
+                                    # 最后来开仓
+                                    res2 = self.api.insert_order(order.contract, order.direction,
+                                                                 'OPEN', order.volumeLeft - abs(availablePos),
+                                                                 order.price)
                                     order.attach(res1)
+                                    order.attach(res2)
                                     self.unfilledQueue.append(order)
+                                    availablePosToday = 0
                                     availablePos = 0
 
                         elif order.virDirection == 'BUY':
-                            if availablePos <= 0:  # 要卖，持仓小于0
+                            if availablePos >= 0:  # 要卖，持仓小于0
                                 logger.debug('下单10')
                                 logger.info(str(order))
                                 res = self.api.insert_order(order.contract, order.direction,
@@ -449,29 +528,53 @@ class RealBroker(backtesting.Broker):
                                                             order.price)
                                 order.attach(res)
                                 self.unfilledQueue.append(order)
-                                availablePos += order.volumeLeft
-                            elif availablePos > 0:
+                                # availablePos += order.volumeLeft
+                            elif availablePos < 0:
                                 if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
                                     logger.debug('下单11')
                                     logger.info(str(order))
-                                    res = self.api.insert_order(order.contract, order.direction,
-                                                                'CLOSE', order.volumeLeft,
-                                                                order.price)
+                                    if availablePosToday >= order.volumeLeft:  # 今仓大于要交易，直接平
+                                        res = self.api.insert_order(order.contract, order.direction,
+                                                                    'CLOSETODAY', order.volumeLeft,
+                                                                    order.price)
+                                        availablePosToday -= order.volumeLeft
+
+                                    elif availablePosToday < order.volumeLeft:  # 现在默认先平今，再平昨。
+                                        if availablePosToday:  # 如果有今仓就先平今。
+                                            res1 = self.api.insert_order(order.contract, order.direction,
+                                                                         'CLOSETODAY', abs(availablePosToday),
+                                                                         order.price)
+                                            order.attach(res1)
+
+                                        res = self.api.insert_order(order.contract, order.direction,
+                                                                    'CLOSE', order.volumeLeft - abs(availablePosToday),
+                                                                    order.price)
+                                        availablePosToday = 0
+
                                     order.attach(res)
                                     self.unfilledQueue.append(order)
-                                    availablePos -= order.volumeLeft
+                                    availablePos += order.volumeLeft
                                 else:
                                     logger.debug('下单12')
                                     logger.info(str(order))
-                                    res = self.api.insert_order(order.contract, order.direction,
-                                                                'CLOSE', availablePos,
-                                                                order.price)
+                                    if availablePosToday:  # 如果有今仓，就先平今仓
+                                        res = self.api.insert_order(order.contract, order.direction,
+                                                                    'CLOSETODAY', abs(availablePosToday),
+                                                                    order.price)
+                                        order.attach(res)
+                                    # 平完了再来平昨仓
                                     res1 = self.api.insert_order(order.contract, order.direction,
-                                                                 'OPEN', order.volumeLeft - availablePos,
+                                                                 'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  order.price)
-                                    order.attach(res)
+
+                                    # 最后来开仓
+                                    res2 = self.api.insert_order(order.contract, order.direction,
+                                                                 'OPEN', order.volumeLeft - abs(availablePos),
+                                                                 order.price)
                                     order.attach(res1)
+                                    order.attach(res2)
                                     self.unfilledQueue.append(order)
+                                    availablePosToday = 0
                                     availablePos = 0
 
             self.orderQueue = []  # 重新归零。
