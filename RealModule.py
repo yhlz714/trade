@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 全部平仓都分了today和非today。要测试看非上期的能不能用closetoday。
+# TODO 还要继续用随机下单程序测试。 看有别的交易所会不会有问题，看今昨仓在一起会不会有问题，那种平了再开的下单方式还没测完。
 # TODO 虚拟账户在order成交的时候会有update内更新的判断，但是虚拟账户维护的dataframe还是没有相应的结果。
 import time
 import logging
@@ -181,19 +181,19 @@ class RealBroker(backtesting.Broker):
 
         if action == Action.BUY:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].ask_price1-10
+                limitPrice = self.allTick[instrument].bid_price1
             return self.creatOrder("BUY", quantity, instrument, open=True, price=limitPrice, orderType='Limit')
         elif action == Action.SELL_SHORT:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].bid_price1+10
+                limitPrice = self.allTick[instrument].ask_price1
             return self.creatOrder("SELL", quantity, instrument, open=True, price=limitPrice, orderType='Limit')
         elif action == Action.SELL:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].bid_price1+10
+                limitPrice = self.allTick[instrument].ask_price1
             return self.creatOrder("SELL", quantity, instrument, open=False, price=limitPrice, orderType='Limit')
         elif action == Action.BUY_TO_COVER:
             if not limitPrice:  # 没有提供价格的限价单。
-                limitPrice = self.allTick[instrument].ask_price1-10
+                limitPrice = self.allTick[instrument].bid_price1
             return self.creatOrder("BUY", quantity, instrument, open=False, price=limitPrice, orderType='Limit')
         else:
             raise Exception('unkown action!')
@@ -382,16 +382,18 @@ class RealBroker(backtesting.Broker):
                                                                 'CLOSETODAY', abs(availablePosToday),
                                                                 self.allTick[order.virContract]['upper_limit'])
                                     order.attach(res)
-                                # 平完了再来平昨仓
-                                res1 = self.api.insert_order(order.contract, order.direction,
+                                if abs(availablePos) > abs(availablePosToday):
+                                    # 平完了再来平昨仓
+                                    res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  self.allTick[order.virContract]['upper_limit'])
+                                    order.attach(res1)
 
                                 # 最后来开仓
                                 res2 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['upper_limit'])
-                                order.attach(res1)
+
                                 order.attach(res2)
                                 self.unfilledQueue.append(order)
                                 availablePosToday = 0
@@ -443,16 +445,18 @@ class RealBroker(backtesting.Broker):
                                                                 'CLOSETODAY', abs(availablePosToday),
                                                                 self.allTick[order.virContract]['lower_limit'])
                                     order.attach(res)
-                                # 平完了再来平昨仓
-                                res1 = self.api.insert_order(order.contract, order.direction,
+                                if abs(availablePos) > abs(availablePosToday):
+                                    # 平完了再来平昨仓
+                                    res1 = self.api.insert_order(order.contract, order.direction,
                                                              'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                              self.allTick[order.virContract]['lower_limit'])
+                                    order.attach(res1)
 
                                 # 最后来开仓
                                 res2 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['lower_limit'])
-                                order.attach(res1)
+
                                 order.attach(res2)
                                 self.unfilledQueue.append(order)
                                 availablePosToday = 0
@@ -504,16 +508,18 @@ class RealBroker(backtesting.Broker):
                                                                     'CLOSETODAY', abs(availablePosToday),
                                                                     order.price)
                                         order.attach(res)
-                                    # 平完了再来平昨仓
-                                    res1 = self.api.insert_order(order.contract, order.direction,
+                                    if abs(availablePos) > abs(availablePosToday):
+                                        # 平完了再来平昨仓
+                                        res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  order.price)
+                                        order.attach(res1)
 
                                     # 最后来开仓
                                     res2 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - abs(availablePos),
                                                                  order.price)
-                                    order.attach(res1)
+
                                     order.attach(res2)
                                     self.unfilledQueue.append(order)
                                     availablePosToday = 0
@@ -530,16 +536,16 @@ class RealBroker(backtesting.Broker):
                                 self.unfilledQueue.append(order)
                                 # availablePos += order.volumeLeft
                             elif availablePos < 0:
-                                if availablePos > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
+                                if abs(availablePos) > order.volumeLeft:  # 需要交易的量少于已有，可以一笔直接平
                                     logger.debug('下单11')
                                     logger.info(str(order))
-                                    if availablePosToday >= order.volumeLeft:  # 今仓大于要交易，直接平
+                                    if abs(availablePosToday) >= order.volumeLeft:  # 今仓大于要交易，直接平
                                         res = self.api.insert_order(order.contract, order.direction,
                                                                     'CLOSETODAY', order.volumeLeft,
                                                                     order.price)
                                         availablePosToday -= order.volumeLeft
 
-                                    elif availablePosToday < order.volumeLeft:  # 现在默认先平今，再平昨。
+                                    elif abs(availablePosToday) < order.volumeLeft:  # 现在默认先平今，再平昨。
                                         if availablePosToday:  # 如果有今仓就先平今。
                                             res1 = self.api.insert_order(order.contract, order.direction,
                                                                          'CLOSETODAY', abs(availablePosToday),
@@ -562,16 +568,18 @@ class RealBroker(backtesting.Broker):
                                                                     'CLOSETODAY', abs(availablePosToday),
                                                                     order.price)
                                         order.attach(res)
-                                    # 平完了再来平昨仓
-                                    res1 = self.api.insert_order(order.contract, order.direction,
+                                    if abs(availablePos) > abs(availablePosToday):
+                                        # 平完了再来平昨仓
+                                        res1 = self.api.insert_order(order.contract, order.direction,
                                                                  'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  order.price)
+                                        order.attach(res1)
 
                                     # 最后来开仓
                                     res2 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - abs(availablePos),
                                                                  order.price)
-                                    order.attach(res1)
+
                                     order.attach(res2)
                                     self.unfilledQueue.append(order)
                                     availablePosToday = 0
@@ -637,15 +645,29 @@ class RealBroker(backtesting.Broker):
                     if temp.orderType == 'Limit':
                         # 重新下限价单
                         logger.debug('重下限价单')
-                        self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
-                                               temp.virContract, temp.open, type(self.strategyNow).__name__, price=None,
+                        if temp.virDirection == 'BUY':
+                            price = self.allTick[temp.virContract].bid_price1
+                        elif temp.virDirection == 'SELL':
+                            price = self.allTick[temp.virContract].ask_price1
+                        else:
+                            logger.error('重新下单出现未知的下单方向，请检查！')
+
+                        self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft, temp.virContract,
+                                                temp.open, type(self.strategyNow).__name__, price=price,
                                                             oldOrNew='new', orderType='Limit'))
                     elif temp.orderType == 'Market':
                         # 重新下单
                         logger.debug('重下市价单')
+                        if temp.virDirection == 'BUY':
+                            price = self.allTick[temp.virContract].upper_limit
+                        elif temp.virDirection == 'SELL':
+                            price = self.allTick[temp.virContract].lower_limit
+                        else:
+                            logger.error('重新下单出现未知的下单方向，请检查！')
+
                         self.orderQueue.append(virtualOrder(temp.virDirection, temp.volumeLeft,
                                                             temp.virContract, temp.open, type(self.strategyNow).__name__,
-                                                            oldOrNew='new'))
+                                                            price=price, oldOrNew='new', orderType='Market'))
                     else:
                         logger.error('重新下单的类型有问题，请检查！')
                 else:
@@ -787,10 +809,10 @@ class virtualOrder:
         self.price = price
 
     def __str__(self):
-        return 'direction: {}, volume: {}, volumeLeft: {}, contract: {}, open: {}, oldOrNew：{}, time: {}, ' \
-               '.isdead: {}, strategyName: {}, countNum: {}'.format(self.virDirection, self.virVolume, self.volumeLeft,
-                                                      self.virContract, self.open, self.oldOrNew, self.time,
-                                                      self.is_dead, self.strategyName, self.id)
+        return 'direction: {}, volume: {}, volumeLeft: {}, contract: {}, open: {} orderType: {}, oldOrNew：{}, time: {}, ' \
+               '.isdead: {}, strategyName: {}, countNum: {}, price: {}'.format(self.virDirection, self.virVolume, self.volumeLeft,
+                                                      self.virContract, self.open, self.orderType, self.oldOrNew, self.time,
+                                                      self.is_dead, self.strategyName, self.id, self.price)
 
     def attach(self, order: 'tqsdk order'):
         """
@@ -839,7 +861,9 @@ class virtualOrder:
 
     @property
     def volumeLeft(self):
-        if self.realOrder:
+        if self.realOrder and self.realOrder[0].is_online:
+            # is_online 判断这个单是否已经被tqsdk发出去了，因为如果还没发出去，就用真实订单的剩余量来当做虚拟单的剩余量的话，在下单过程中
+            # 会出现attach了一部分订单还没attach全部，导致以为虚拟订单的数量变少
             self.__volumeLeft = 0
             for item in self.realOrder:
                 self.__volumeLeft += item.volume_left

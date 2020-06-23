@@ -163,7 +163,7 @@ if __name__ == '__main__':
             # 每隔一秒进行一次检查。
             broker.update()
 
-        if not now.tm_min % 15:  # 当时间分钟数整除15时，也就是十五分钟运行一次
+        if not now.tm_min % 15 and now.tm_sec == 15:  # 当时间分钟数整除15时，也就是十五分钟运行一次,
             logger.info(str(pos))
 
         # 检测是否接近涨跌停预警
