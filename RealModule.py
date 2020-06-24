@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 还要继续用随机下单程序测试。 看有别的交易所会不会有问题，看今昨仓在一起会不会有问题，那种平了再开的下单方式还没测完。
+# TODO 用多个随机下单策略测试。随机下单策略可以同时包含多个品种下单。
 # TODO 虚拟账户在order成交的时候会有update内更新的判断，但是虚拟账户维护的dataframe还是没有相应的结果。
 import time
 import logging
@@ -861,13 +861,23 @@ class virtualOrder:
 
     @property
     def volumeLeft(self):
-        if self.realOrder and self.realOrder[0].is_online:
-            # is_online 判断这个单是否已经被tqsdk发出去了，因为如果还没发出去，就用真实订单的剩余量来当做虚拟单的剩余量的话，在下单过程中
-            # 会出现attach了一部分订单还没attach全部，导致以为虚拟订单的数量变少
-            self.__volumeLeft = 0
-            for item in self.realOrder:
-                self.__volumeLeft += item.volume_left
+        if self.realOrder:
+            if self.realOrder[0].is_online:  # 订单是在线的，已到交易所但没有死
+                # is_online 判断这个单是否已经被tqsdk发出去了，因为如果还没发出去，就用真实订单的剩余量来当做虚拟单的剩余量的话，在下单过程中
+                # 会出现attach了一部分订单还没attach全部，导致以为虚拟订单的数量变少
+                self.__volumeLeft = 0
+                for item in self.realOrder:
+                    self.__volumeLeft += item.volume_left
+            else:
+                if self.is_dead:  # 不在线但死了，说明这个单已经完成了, 所以还是应该用真实订单的剩余之和来计算
+                    self.__volumeLeft = 0
+                    for item in self.realOrder:
+                        self.__volumeLeft += item.volume_left
+
+                else:  # 说明这个单还没发
+                    pass
         return self.__volumeLeft
+
 
     @volumeLeft.setter
     def volumeLeft(self, value):

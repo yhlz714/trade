@@ -628,6 +628,8 @@ class RandomOrderStratey(YhlzStreategy):
             direction = broker.Order.Action.BUY
         elif num == 1:
             direction = broker.Order.Action.SELL_SHORT
+            
+        logger.debug('买卖方向是：' + str(direction))
         # elif num == 2:
         #     direction = broker.Order.Action.SELL
         # elif num == 3:
