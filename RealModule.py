@@ -282,6 +282,10 @@ class RealBroker(backtesting.Broker):
             groupbyOrder = {}  # 用一个dict来装分类订单。
             for order in self.orderQueue:
                 logger.debug(str(order))
+                if not order.volumeLeft:
+                    logger.debug('数量为0，直接跳过！~')
+                    order.is_dead = True
+                    continue
                 if not order.virContract in groupbyOrder:  # 还没有这个合约
                     groupbyOrder[order.virContract] = {'long': [], 'short': [], 'other':[]}
                     # 初始化为dict Of list , 分为多空两边, 限价单直接进入other 不予对冲
