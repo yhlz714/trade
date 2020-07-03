@@ -130,7 +130,7 @@ class SMACrossOver(YhlzStreategy):
                 ret = self.getBroker().createLimitOrder(broker.Order.Action.BUY,
                                                          self.transInstrument(self.__instrument), quantity)
                 self.getBroker().submitOrder(ret)
-                logger.debug('买1' + str(bars.getDateTime()))
+                logger.debug('买  1' + str(bars.getDateTime()))
             elif self.sma[-2] < self.sma1[-2] and self.sma[-3] > self.sma1[-3]:
                 if self.getBroker().getShares(self.__instrument) != 0:
                     ret = self.getBroker().createLimitOrder(broker.Order.Action.SELL,
@@ -140,7 +140,7 @@ class SMACrossOver(YhlzStreategy):
                 ret = self.getBroker().createLimitOrder(broker.Order.Action.SELL_SHORT,
                                                          self.transInstrument(self.__instrument), quantity)
                 self.getBroker().submitOrder(ret)
-                logger.debug('卖1' + str(bars.getDateTime()))
+                logger.debug('卖1  ' + str(bars.getDateTime()))
         else:
             if cross.cross_above(self.sma, self.sma1) > 0:
                 if self.getBroker().getShares(self.__instrument) != 0:
