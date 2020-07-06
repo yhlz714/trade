@@ -392,9 +392,9 @@ class RealBroker(backtesting.Broker):
                                                                  'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  self.allTick[order.virContract]['upper_limit'])
                                     order.attach(res1)
-
-                                # 最后来开仓
-                                res2 = self.api.insert_order(order.contract, order.direction,
+                                if order.volumeLeft > abs(availablePos):  # 这种情况还需要开仓
+                                    # 最后来开仓
+                                    res2 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['upper_limit'])
 
@@ -455,9 +455,9 @@ class RealBroker(backtesting.Broker):
                                                              'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                              self.allTick[order.virContract]['lower_limit'])
                                     order.attach(res1)
-
-                                # 最后来开仓
-                                res2 = self.api.insert_order(order.contract, order.direction,
+                                if order.volumeLeft > abs(availablePos):  # 这种情况还需要开仓
+                                    # 最后来开仓
+                                    res2 = self.api.insert_order(order.contract, order.direction,
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['lower_limit'])
 
@@ -518,11 +518,11 @@ class RealBroker(backtesting.Broker):
                                                                  'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  order.price)
                                         order.attach(res1)
-
-                                    # 最后来开仓
-                                    res2 = self.api.insert_order(order.contract, order.direction,
-                                                                 'OPEN', order.volumeLeft - abs(availablePos),
-                                                                 order.price)
+                                    if order.volumeLeft > abs(availablePos):  # 这种情况还需要开仓
+                                        # 最后来开仓
+                                        res2 = self.api.insert_order(order.contract, order.direction,
+                                                                     'OPEN', order.volumeLeft - abs(availablePos),
+                                                                     order.price)
 
                                     order.attach(res2)
                                     self.unfilledQueue.append(order)
@@ -578,9 +578,9 @@ class RealBroker(backtesting.Broker):
                                                                  'CLOSE', abs(availablePos) - abs(availablePosToday),
                                                                  order.price)
                                         order.attach(res1)
-
-                                    # 最后来开仓
-                                    res2 = self.api.insert_order(order.contract, order.direction,
+                                    if order.volumeLeft > abs(availablePos):  # 这种情况还需要开仓
+                                        # 最后来开仓
+                                        res2 = self.api.insert_order(order.contract, order.direction,
                                                                  'OPEN', order.volumeLeft - abs(availablePos),
                                                                  order.price)
 
