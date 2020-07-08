@@ -1,6 +1,5 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 用多个随机下单策略测试。随机下单策略可以同时包含多个品种下单。
 # TODO 虚拟账户在order成交的时候会有update内更新的判断，但是虚拟账户维护的dataframe还是没有相应的结果。
 import time
 import logging
@@ -90,7 +89,9 @@ class RealBroker(backtesting.Broker):
         """Returns the number of shares for an instrument."""
         if strategyName==None:
             strategyName = type(self.strategyNow).__name__  # 获取实例的类名
-        return self.getPositions(strategyName).loc[:, 'volume'].sum()  # 返回一个对多空仓加总了的数量。
+        temp = self.getPositions(strategyName)
+        temp.loc[temp['contract'] == instrument, 'volume'].sum()
+        return   # 返回一个对多空仓加总了的数量。
 
     def getPositions(self, strategyName=None):
         """Returns a dictionary that maps instruments to shares."""
@@ -398,7 +399,7 @@ class RealBroker(backtesting.Broker):
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['upper_limit'])
 
-                                order.attach(res2)
+                                    order.attach(res2)
                                 self.unfilledQueue.append(order)
                                 availablePosToday = 0
                                 availablePos = 0
@@ -461,7 +462,7 @@ class RealBroker(backtesting.Broker):
                                                              'OPEN', order.volumeLeft - abs(availablePos),
                                                              self.allTick[order.virContract]['lower_limit'])
 
-                                order.attach(res2)
+                                    order.attach(res2)
                                 self.unfilledQueue.append(order)
                                 availablePosToday = 0
                                 availablePos = 0
@@ -524,7 +525,7 @@ class RealBroker(backtesting.Broker):
                                                                      'OPEN', order.volumeLeft - abs(availablePos),
                                                                      order.price)
 
-                                    order.attach(res2)
+                                        order.attach(res2)
                                     self.unfilledQueue.append(order)
                                     availablePosToday = 0
                                     availablePos = 0
@@ -584,7 +585,7 @@ class RealBroker(backtesting.Broker):
                                                                  'OPEN', order.volumeLeft - abs(availablePos),
                                                                  order.price)
 
-                                    order.attach(res2)
+                                        order.attach(res2)
                                     self.unfilledQueue.append(order)
                                     availablePosToday = 0
                                     availablePos = 0
