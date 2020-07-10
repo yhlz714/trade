@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 虚拟账户在order成交的时候会有update内更新的判断，但是虚拟账户维护的dataframe还是没有相应的结果。
+# TODO 虚拟账户在order成交的时候会有update更新，但是有时又不更新，
 import time
 import logging
 
@@ -751,31 +751,34 @@ class _virtualAccountHelp:
         # 处理订单的更新。更新position account 就是 position
         for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
             logger.debug('处理订单变化')
-            if order.is_dead and order.virVolume != order.volumeLeft:
-                # 检查挂单量是否和剩余量相等，避免完全未成交的撤单被用来更新持仓导致出现问题。 比如会被创建一个持仓数量为0的持
-                # 仓记录
+            logger.debug(str(order.virVolume) + ' ' + str(order.volumeLeft))
+            if order.is_dead:
                 logger.debug('有完成的订单')
                 self.orders.remove(order)
-                tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x: x)
-                tempStr = str(order.contract) + str(order.direction) + str(order.oldOrNew)
-                if tempStr in tempTrade:  # 说明有这个持仓
-                    logger.debug('修改旧持仓。')
-                    if order.open:
-                        tempTrade['volume'] += (order.volume - order.volumeLeft)  # 将成交的数量加上即可
-                    else:  # 平仓
-                        if order.volume < tempTrade['volume']:
-                            tempTrade['volume'] -= (order.volume - order.volumeLeft)
-                        elif order.volume == tempTrade['volume']:
-                            tempTrade.drop(tempStr, inplace=True)
-                        else:
-                            logger.error('平仓数量超过已有持仓，请检查！')
-                            raise Exception('平仓数量超过已有持仓，请检查！')
+                if order.virVolume != order.volumeLeft:
+                    # 检查挂单量是否和剩余量相等，避免完全未成交的撤单被用来更新持仓导致出现问题。 比如会被创建一个持仓数量为0的持
+                    # 仓记录
+                    tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x: x)
+                    tempStr = str(order.contract) + str(order.direction) + str(order.oldOrNew)
+                    if tempStr in tempTrade:  # 说明有这个持仓
+                        logger.debug('修改旧持仓。')
+                        if order.open:
+                            tempTrade['volume'] += (order.volume - order.volumeLeft)  # 将成交的数量加上即可
+                        else:  # 平仓
+                            if order.volume < tempTrade['volume']:
+                                tempTrade['volume'] -= (order.volume - order.volumeLeft)
+                            elif order.volume == tempTrade['volume']:
+                                tempTrade.drop(tempStr, inplace=True)
+                            else:
+                                logger.error('平仓数量超过已有持仓，请检查！')
+                                raise Exception('平仓数量超过已有持仓，请检查！')
 
-                    self.account = tempTrade.reset_index()
-                else:
-                    logger.debug('创建新持仓')
-                    self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
-                        [order.virDirection, order.virVolume - order.volumeLeft, order.virContract]
+                        self.account = tempTrade.reset_index()
+                    else:
+                        logger.debug('创建新持仓')
+                        self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
+                            [order.virDirection, order.virVolume - order.volumeLeft, order.virContract]
+
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
         logger.debug('更新完订单以后的账户情况是：')
