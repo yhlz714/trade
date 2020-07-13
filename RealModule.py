@@ -1,6 +1,6 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 虚拟账户在order成交的时候会有update更新，但是有时又不更新，
+# TODO 重新写741行更新虚拟持仓的语句。现有语句不能正确更新持仓
 import time
 import logging
 
@@ -736,8 +736,8 @@ class _virtualAccountHelp:
                 if order.virVolume != order.volumeLeft:
                     # 检查挂单量是否和剩余量相等，避免完全未成交的撤单被用来更新持仓导致出现问题。 比如会被创建一个持仓数量为0的持
                     # 仓记录
-                    tempTrade = self.account.groupby(by=['contract', 'direction', 'oldOrNew']).apply(lambda x: x)
-                    tempStr = str(order.contract) + str(order.direction) + str(order.oldOrNew)
+                    tempTrade = self.account.groupby(by=['contract', 'oldOrNew']).apply(lambda x: x)
+                    tempStr = str(order.contract) + str(order.oldOrNew)
                     if tempStr in tempTrade:  # 说明有这个持仓
                         logger.debug('修改旧持仓。')
                         if order.open:
