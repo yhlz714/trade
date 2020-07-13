@@ -726,28 +726,6 @@ class _virtualAccountHelp:
         :param position: tqsdk的position， 用来计算每个不同合约的保证金占用。
         :return:
         """
-        # logger.debug('tick 是：')
-        # logger.debug(str(allTick))
-        for i in range(len(self.account)):
-            if self.account.loc[i, 'direction'] == 'BUY':
-                # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
-                self.account['balance'] += \
-                    (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
-                    * self.account.loc[i, 'volume'] * allTick[self.account.loc[i, 'contract']].volume_multiple
-
-            elif self.account.loc[i, 'direction'] == 'SELL':
-                # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
-                self.account['balance'] -= \
-                    (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
-                    * self.account.loc[i, 'volume'] * allTick[self.account.loc[i, 'contract']].volume_multiple
-            if self.account.loc[i, 'account'] != 1:  # 不是记录信息的行，才计算
-                self.account.loc[i, 'prePrice'] = allTick[self.account.loc[i, 'contract']].last_price
-                pos = position[self.account.loc[i, 'contract']]
-                self.account.loc[i, 'fund occupied'] = \
-                    pos.margin / (pos.pos_long + pos.pos_short)
-        # logger.debug('账户情况是：')
-        # logger.debug(str(self.account))
-
         # 处理订单的更新。更新position account 就是 position
         for order in self.orders[:]:  # 对原list进行拷贝，避免因为删除导致index溢出
             logger.debug('处理订单变化')
@@ -783,6 +761,33 @@ class _virtualAccountHelp:
                 self.account['fee'] += order.fee
         logger.debug('更新完订单以后的账户情况是：')
         logger.debug('\n' + str(self.account))
+
+        # logger.debug('tick 是：')
+        # logger.debug(str(allTick))
+        for i in range(len(self.account)):
+            if self.account.loc[i, 'direction'] == 'BUY':
+                # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
+                self.account['balance'] += \
+                    (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
+                    * self.account.loc[i, 'volume'] * allTick[self.account.loc[i, 'contract']].volume_multiple
+
+            elif self.account.loc[i, 'direction'] == 'SELL':
+                # 更新权益，用tick的变动乘上持有的数量，再乘上合约乘数。
+                self.account['balance'] -= \
+                    (allTick[self.account.loc[i, 'contract']].last_price - self.account.loc[i, 'prePrice']) \
+                    * self.account.loc[i, 'volume'] * allTick[self.account.loc[i, 'contract']].volume_multiple
+            if self.account.loc[i, 'account'] != 1:  # 不是记录信息的行，才计算
+                self.account.loc[i, 'prePrice'] = allTick[self.account.loc[i, 'contract']].last_price
+                pos = position[self.account.loc[i, 'contract']]
+                # 有时候会出现持仓更新的不如order快的情况。这样就会出现有保证金占用，但是总持仓为0的情况
+                if pos.pos_long + pos.pos_short != 0:
+                    self.account.loc[i, 'fund occupied'] = \
+                        pos.margin / abs(pos.pos_long + pos.pos_short)
+
+        # logger.debug('账户情况是：')
+        # logger.debug(str(self.account))
+
+
 
 
 class virtualOrder:
