@@ -754,8 +754,8 @@ class _virtualAccountHelp:
                         self.account = tempTrade.reset_index()
                     else:
                         logger.debug('创建新持仓')
-                        self.account.loc[len(self.account), ['direction', 'volume', 'contract']] = \
-                            [order.virDirection, order.virVolume - order.volumeLeft, order.virContract]
+                        self.account.loc[len(self.account), ['direction', 'volume', 'contract', 'avgOpenPrice']] = \
+                            [order.virDirection, order.virVolume - order.volumeLeft, order.virContract, order.trade_price]
 
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
