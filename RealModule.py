@@ -736,13 +736,40 @@ class _virtualAccountHelp:
                 if order.virVolume != order.volumeLeft:
                     # 检查挂单量是否和剩余量相等，避免完全未成交的撤单被用来更新持仓导致出现问题。 比如会被创建一个持仓数量为0的持
                     # 仓记录
-                    tempTrade = self.account.groupby(by=['contract', 'oldOrNew']).apply(lambda x: x)
-                    tempStr = str(order.contract) + str(order.oldOrNew)
+                    tempTrade = self.account.groupby(by=['contract']).apply(lambda x: x)
+                    tempStr = str(order.contract)
+
                     if tempStr in tempTrade:  # 说明有这个持仓
-                        logger.debug('修改旧持仓。')
-                        if order.open:
-                            tempTrade['volume'] += (order.volume - order.volumeLeft)  # 将成交的数量加上即可
-                        else:  # 平仓
+                        if order.open:  # 开仓
+                            for i in range(len(self.account)):
+                                if self.account.loc[i, 'direction'] == order.direction:  # 判断是否同向持仓
+                                    # 更新持仓均价
+                                    self.account.loc[i, 'avgOpenPrice'] = (self.account.loc[i, 'avgOpenPrice'] * self.account.loc[i, 'volume'] +\
+                                        order.filledPrice * order.filledVolume) / (order.filledVolume + self.account.loc[i, 'volume'])
+                                    # 更新今仓和总仓
+                                    self.account.loc[i, 'volumeToday'] += order.filledVolume
+                                    self.account.loc[i, 'volume'] += order.filledVolume
+                                    break
+                            else:
+                                logger.debug('创建新持仓')
+                                self.account.loc[len(self.account), ['direction', 'volume', 'contract', 'avgOpenPrice']] = \
+                                    [order.virDirection, order.filledVolume, order.virContract, order.trade_price]
+                        else:
+                            logger.debug('修改旧持仓。')
+                            # 判断需要搜寻的direction
+                            if order.direction == 'BUY':
+                                serchDirc = 'SELL'
+                            elif order.direction == 'SELL':
+                                serchDirc = 'BUY'
+                            else:
+                                raise Exception('买卖方向字段有误！')
+
+                            for i in range(len(self.account)):
+                                if self.account.loc[i, 'direction'] == serchDirc:  # 判断是否有反向持仓
+                                    # TODO 流程图中相异方向有的内容
+                                    break
+                            else: # 没有相异方向的持仓报错
+                                raise Exception('可平持仓不足！')
                             if order.volume < tempTrade['volume']:
                                 tempTrade['volume'] -= (order.volume - order.volumeLeft)
                             elif order.volume == tempTrade['volume']:
@@ -753,9 +780,12 @@ class _virtualAccountHelp:
 
                         self.account = tempTrade.reset_index()
                     else:
-                        logger.debug('创建新持仓')
-                        self.account.loc[len(self.account), ['direction', 'volume', 'contract', 'avgOpenPrice']] = \
-                            [order.virDirection, order.virVolume - order.volumeLeft, order.virContract, order.trade_price]
+                        if order.open:  # 开仓
+                            logger.debug('创建新持仓')
+                            self.account.loc[len(self.account), ['direction', 'volume', 'contract', 'avgOpenPrice']] = \
+                                [order.virDirection, order.filledVolume, order.virContract, order.trade_price]
+                        else:
+                            raise Exception('没有可平持仓！')
 
                 self.account['balance'] -= order.fee  # 去掉这次交易的手续费。
                 self.account['fee'] += order.fee
@@ -786,8 +816,6 @@ class _virtualAccountHelp:
 
         # logger.debug('账户情况是：')
         # logger.debug(str(self.account))
-
-
 
 
 class virtualOrder:
@@ -902,6 +930,14 @@ class virtualOrder:
         # TODO 以后再想怎么计算手续费。
         return 0
 
+    @property
+    def filledPrice(self):
+        # TODO 计算所有订单的真实成交价
+        return
+
+    @property
+    def filledVolume(self):
+        return self.virVolume - self.volumeLeft
 
 class RealFeed(csvfeed.GenericBarFeed):
     """模拟pyalgotrade 的feed"""
