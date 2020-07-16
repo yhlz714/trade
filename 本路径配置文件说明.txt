@@ -15,5 +15,10 @@ currentAccount.csv ÊÇÊµÅÌ½»Ò×Ê±realBrokerÓÃÀ´¼ÇÂ¼Ã¿¸öÐéÄâÕË»§¶ÔÓÚ²»Í¬µÄ²ßÂÔµ½µ×¸
 Î»£¬Èç¹ûÎª1±íÊ¾ÊÇÒ»¸ö±íÊ¾ÕË»§ÐÅÏ¢µÄÎ»ÖÃ£¬Ä¬ÈÏ±ØÐëÓÐ£¬·ñÔòdataframeÎª¿Õ»á³öÏÖÒ»Ð©ÎÊÌâ£¬Í¬Ê±¶ÔÓÚÃ»ÓÐ³Ö²ÖµÄÕË»§Ò²ÐèÒªÓÐÒ»ÐÐµÄÎ»ÖÃÀ´
 ¼ÇÂ¼È¨Òæ£¬ÊÖÐø·ÑµÈÊý¾Ý¡£
 
+general_ticker_info ÄÚÈÝ°üº¬¸÷¸öºÏÔ¼µÄ»ù±¾ÐÅÏ¢¡£flat_rule ÓÃ\À´·Ö¸î£¬Ç°ÃæµÄÎªÓÅÏÈÆ½£¬ºóÃæµÄÎªÖÍºó£¬Èç¹ûÖ»ÓÐÒ»¸ö old\ ±íÊ¾Ö»ÄÜÆ½
+ÀÏ²Ö£¬²»ÄÜÆ½½ñ²Ö£¬Èç¹ûÒªÆ½½ñ£¬ÐèÒªÓÃ¿ª²ÖÀ´´úÌæ£¬Áí²»¿ÉÄÜ´æÔÚÆ½×ò±È¿ª²Ö±ãÒË£¬ËùÒÔÓÃ¿ª²ÖÀ´´úÌæÆ½×òµÄÇé¿ö£¬ÒòÎª²ßÂÔ²»ÄÜ±£Ö¤¿ªµÄ²ÖÒ»¶¨
+ÊÇ½ñ²Ö±»Æ½£¬ËùÒÔ¼´Ê¹ÊÇ¿ª²ÖÌæ´úÆ½×ò£¬×îÖÕ»¹ÊÇÓÐ¿ÉÄÜ±ä³ÉÆ½×ò¡£ÉÏÆÚËùºÍÄÜÔ´ÖÐÐÄµÄ¿ÉÒÔÑ¡ÔñÆ½½ñÆ½×ò£¬ÆäËûµÄÖ»ÄÜÏÈ¿ªÏÈÆ½£¬ËùÒÔÖ»´æÔÚËµ½ñ
+²ÖÊÇ·ñ¿ÉÆ½µÄÎÊÌâ¡£
+
 ×¢£ºÃüÃû¹æ·¶°´ÕÕtqsdkµÄÌìÇÚÖÕ¶ËÖÐµÄÃüÃû¹æ·¶À´¡£µ«ÊÇ×óÀ¨ºÅÒª¼Ó£¬ÓÒÀ¨ºÅ²»¼Ó£¬ÓÒ±ß¶ººÅÒª¼ÓÎªÁË
 ÔÚevalÊ±ÓÒ±ß»¹¿ÉÒÔÔÙÌí¼Ó²ÎÊý£¬Ä¿Ç°²ßÂÔµÄµ÷ÓÃ¹æÔò¾ÍÊÇÈý¸ö²ÎÊý=>Êý¾Ý£¬³Ö²Ö£¬ºÍÕË»§×Ê½ð¡£

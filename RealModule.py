@@ -1,6 +1,5 @@
 # coding=gbk
 """实盘运行时需要的模块"""
-# TODO 重新写741行更新虚拟持仓的语句。现有语句不能正确更新持仓
 import time
 import logging
 
@@ -742,7 +741,7 @@ class _virtualAccountHelp:
                     if tempStr in tempTrade:  # 说明有这个持仓
                         if order.open:  # 开仓
                             for i in range(len(self.account)):
-                                if self.account.loc[i, 'direction'] == order.direction:  # 判断是否同向持仓
+                                if self.account.loc[i, 'direction'] == order.direction:  # 判断是否有同向持仓
                                     # 更新持仓均价
                                     self.account.loc[i, 'avgOpenPrice'] = (self.account.loc[i, 'avgOpenPrice'] * self.account.loc[i, 'volume'] +\
                                         order.filledPrice * order.filledVolume) / (order.filledVolume + self.account.loc[i, 'volume'])
@@ -754,7 +753,7 @@ class _virtualAccountHelp:
                                 logger.debug('创建新持仓')
                                 self.account.loc[len(self.account), ['direction', 'volume', 'contract', 'avgOpenPrice']] = \
                                     [order.virDirection, order.filledVolume, order.virContract, order.trade_price]
-                        else:
+                        else:  # 平仓
                             logger.debug('修改旧持仓。')
                             # 判断需要搜寻的direction
                             if order.direction == 'BUY':
@@ -766,10 +765,25 @@ class _virtualAccountHelp:
 
                             for i in range(len(self.account)):
                                 if self.account.loc[i, 'direction'] == serchDirc:  # 判断是否有反向持仓
-                                    # TODO 流程图中相异方向有的内容
+                                    if self.account.loc[i,'volume'] > order.filledVolume:
+                                        if self.account.loc[i, 'volume'] - self.account.loc[i, 'volumeToday'] < order.filledVolume:
+                                            # 昨仓小于平掉的，今仓也要减少，此处默认先开先平
+                                            self.account.loc[i, 'volumeToday'] -= \
+                                                (order.filledVolume - (self.account.loc[i, 'volume'] - self.account.loc[i, 'volumeToday']))
+
+                                        self.account.loc[i, 'volume'] -= order.filledVolume
+                                        # 平仓有可能会导致数量为0所以要检查是否去掉这一个持仓
+                                        if self.account.loc[i, 'volume'] == 0:
+                                            if self.account.loc[i, 'volumeToday'] == 0:
+                                                self.account.drop(i, inplace=True)
+                                            else:
+                                                raise Exception('volume为0，wolumeToday不为0！')
+                                    else:
+                                        raise Exception('平仓超过持仓数量。')
                                     break
                             else: # 没有相异方向的持仓报错
-                                raise Exception('可平持仓不足！')
+                                raise Exception('没有与要平的方向相反的持仓')
+
                             if order.volume < tempTrade['volume']:
                                 tempTrade['volume'] -= (order.volume - order.volumeLeft)
                             elif order.volume == tempTrade['volume']:
@@ -779,7 +793,7 @@ class _virtualAccountHelp:
                                 raise Exception('平仓数量超过已有持仓，请检查！')
 
                         self.account = tempTrade.reset_index()
-                    else:
+                    else:  # 没有这个品种的持仓
                         if order.open:  # 开仓
                             logger.debug('创建新持仓')
                             self.account.loc[len(self.account), ['direction', 'volume', 'contract', 'avgOpenPrice']] = \
