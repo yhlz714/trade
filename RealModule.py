@@ -946,8 +946,15 @@ class virtualOrder:
 
     @property
     def filledPrice(self):
-        # TODO 计算所有订单的真实成交价
-        return
+        tempVol = 0
+        tempSum = 0
+        for order in self.realOrder:
+            if order.trade_price:
+                tempSum += order.trade_price * (order.volume - order.volumeLeft)
+                tempVol += (order.volume - order.volumeLeft)
+            else:
+                raise Exception('该订单没有任何成交！')
+        return float(tempSum / tempVol)
 
     @property
     def filledVolume(self):
